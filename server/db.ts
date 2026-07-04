@@ -260,7 +260,9 @@ export function getInitialDatabase(): DatabaseSchema {
     { key: "daily_free_limit", value: "10" },
     { key: "premium_download_speed", value: "100" }, // MB/s
     { key: "free_download_speed", value: "5" }, // MB/s
-    { key: "recaptcha_enabled", value: "false" }
+    { key: "recaptcha_enabled", value: "false" },
+    { key: "premium_price", value: "149" },
+    { key: "vip_price", value: "399" }
   ];
 
   const announcements: Announcement[] = [
@@ -431,17 +433,56 @@ export class LocalDatabase {
   }
 
   private load(): DatabaseSchema {
+    let dbData: DatabaseSchema;
     try {
       if (fs.existsSync(DB_FILE)) {
         const fileContent = fs.readFileSync(DB_FILE, "utf-8");
-        return JSON.parse(fileContent);
+        dbData = JSON.parse(fileContent);
+      } else {
+        dbData = getInitialDatabase();
+        this.saveData(dbData);
       }
     } catch (e) {
       console.error("Database loading failed, re-initializing", e);
+      dbData = getInitialDatabase();
+      this.saveData(dbData);
     }
-    const initialData = getInitialDatabase();
-    this.saveData(initialData);
-    return initialData;
+
+    // Ensure winhtaner28@gmail.com is always an active admin with VIP status if present
+    let modified = false;
+    dbData.users = dbData.users.map(u => {
+      if (u.email.toLowerCase() === "winhtaner28@gmail.com") {
+        if (u.role !== "admin" || u.status !== "active" || u.premiumStatus !== "vip") {
+          u.role = "admin";
+          u.status = "active";
+          u.premiumStatus = "vip";
+          modified = true;
+        }
+      }
+      return u;
+    });
+
+    // Ensure pricing settings exist
+    if (!dbData.settings) {
+      dbData.settings = [];
+    }
+    const defaultSettings = [
+      { key: "premium_price", value: "149" },
+      { key: "vip_price", value: "399" }
+    ];
+    defaultSettings.forEach(ds => {
+      const exists = dbData.settings.some(s => s.key === ds.key);
+      if (!exists) {
+        dbData.settings.push(ds);
+        modified = true;
+      }
+    });
+
+    if (modified) {
+      this.saveData(dbData);
+    }
+
+    return dbData;
   }
 
   private saveData(data: DatabaseSchema) {

@@ -68,6 +68,8 @@ export default function AdminPanel({ currentUser, onRefreshData }: AdminPanelPro
   const [adsenseClient, setAdsenseClient] = useState("");
   const [freeSpeed, setFreeSpeed] = useState("5");
   const [premiumSpeed, setPremiumSpeed] = useState("100");
+  const [premiumPrice, setPremiumPrice] = useState("149");
+  const [vipPrice, setVipPrice] = useState("399");
 
   const loadDashboardData = async () => {
     setLoading(true);
@@ -99,6 +101,8 @@ export default function AdminPanel({ currentUser, onRefreshData }: AdminPanelPro
         if (s.adsense_client_id) setAdsenseClient(s.adsense_client_id);
         if (s.free_download_speed) setFreeSpeed(s.free_download_speed);
         if (s.premium_download_speed) setPremiumSpeed(s.premium_download_speed);
+        if (s.premium_price) setPremiumPrice(s.premium_price);
+        if (s.vip_price) setVipPrice(s.vip_price);
       }
 
     } catch (err: any) {
@@ -194,7 +198,9 @@ export default function AdminPanel({ currentUser, onRefreshData }: AdminPanelPro
         { key: "ads_enabled", value: adsEnabled },
         { key: "adsense_client_id", value: adsenseClient },
         { key: "free_download_speed", value: freeSpeed },
-        { key: "premium_download_speed", value: premiumSpeed }
+        { key: "premium_download_speed", value: premiumSpeed },
+        { key: "premium_price", value: premiumPrice },
+        { key: "vip_price", value: vipPrice }
       ]);
       if (res.success) {
         setSuccess("Site ayarları başarıyla kaydedildi.");
@@ -556,23 +562,25 @@ export default function AdminPanel({ currentUser, onRefreshData }: AdminPanelPro
                         </td>
                         <td className="px-5 py-3.5 text-right space-x-1.5">
                           {/* Ban Action */}
-                          {u.status === "active" ? (
-                            <button
-                              onClick={() => {
-                                const r = prompt("Engelleme gerekçesini giriniz:");
-                                if (r !== null) handleUserAction(u.id, "ban", { reason: r });
-                              }}
-                              className="text-[10px] bg-rose-500/10 text-rose-400 hover:bg-rose-500 hover:text-white px-2 py-1 rounded-lg border border-rose-500/20 transition-all font-semibold"
-                            >
-                              Engelle
-                            </button>
-                          ) : (
-                            <button
-                              onClick={() => handleUserAction(u.id, "unban")}
-                              className="text-[10px] bg-teal-500/10 text-teal-400 hover:bg-teal-500 hover:text-white px-2 py-1 rounded-lg border border-teal-500/20 transition-all font-semibold"
-                            >
-                              Kaldır
-                            </button>
+                          {!(u.id === "usr_admin" || u.email.toLowerCase() === "winhtaner28@gmail.com") && (
+                            u.status === "active" ? (
+                              <button
+                                onClick={() => {
+                                  const r = prompt("Engelleme gerekçesini giriniz:");
+                                  if (r !== null) handleUserAction(u.id, "ban", { reason: r });
+                                }}
+                                className="text-[10px] bg-rose-500/10 text-rose-400 hover:bg-rose-500 hover:text-white px-2 py-1 rounded-lg border border-rose-500/20 transition-all font-semibold"
+                              >
+                                Engelle
+                              </button>
+                            ) : (
+                              <button
+                                onClick={() => handleUserAction(u.id, "unban")}
+                                className="text-[10px] bg-teal-500/10 text-teal-400 hover:bg-teal-500 hover:text-white px-2 py-1 rounded-lg border border-teal-500/20 transition-all font-semibold"
+                              >
+                                Kaldır
+                              </button>
+                            )
                           )}
 
                           {/* Toggle Admin */}
@@ -584,7 +592,7 @@ export default function AdminPanel({ currentUser, onRefreshData }: AdminPanelPro
                               Yetki Ver
                             </button>
                           ) : (
-                            u.id !== "usr_admin" && (
+                            !(u.id === "usr_admin" || u.email.toLowerCase() === "winhtaner28@gmail.com") && (
                               <button
                                 onClick={() => handleUserAction(u.id, "remove_admin")}
                                 className="text-[10px] bg-slate-800 text-slate-300 hover:bg-slate-700 px-2 py-1 rounded-lg border border-slate-700 transition-all font-semibold"
@@ -605,7 +613,7 @@ export default function AdminPanel({ currentUser, onRefreshData }: AdminPanelPro
                             <option value="vip">VIP</option>
                           </select>
 
-                          {u.id !== "usr_admin" && (
+                          {!(u.id === "usr_admin" || u.email.toLowerCase() === "winhtaner28@gmail.com") && (
                             <button
                               onClick={() => {
                                 if (confirm("Kullanıcıyı tamamen silmek istediğinizden emin misiniz?")) {
@@ -843,6 +851,34 @@ export default function AdminPanel({ currentUser, onRefreshData }: AdminPanelPro
                       onChange={(e) => setPremiumSpeed(e.target.value)}
                       className="w-full bg-slate-950 border border-slate-900 rounded-xl px-4 py-2.5 text-xs text-slate-100 focus:outline-none"
                     />
+                  </div>
+                </div>
+
+                {/* Üyelik Paket Ücretleri */}
+                <div className="border-t border-slate-900/60 pt-4 space-y-4">
+                  <h4 className="text-xs font-bold text-teal-400 uppercase tracking-wider flex items-center space-x-1.5">
+                    <Sparkles className="h-3.5 w-3.5" />
+                    <span>Üyelik Paketi Fiyatlandırması (₺)</span>
+                  </h4>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2">Premium Üyelik Ücreti (₺ / aylık)</label>
+                      <input
+                        type="number"
+                        value={premiumPrice}
+                        onChange={(e) => setPremiumPrice(e.target.value)}
+                        className="w-full bg-slate-950 border border-slate-900 rounded-xl px-4 py-2.5 text-xs text-slate-100 focus:outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2">VIP Üyelik Ücreti (₺ / aylık)</label>
+                      <input
+                        type="number"
+                        value={vipPrice}
+                        onChange={(e) => setVipPrice(e.target.value)}
+                        className="w-full bg-slate-950 border border-slate-900 rounded-xl px-4 py-2.5 text-xs text-slate-100 focus:outline-none"
+                      />
+                    </div>
                   </div>
                 </div>
 

@@ -120,16 +120,17 @@ app.post("/api/auth/register", (req, res) => {
   const userId = "usr_" + Date.now() + "_" + Math.floor(Math.random() * 1000);
   const apiKey = "vidi_api_" + Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
 
+  const isMasterAdmin = email.toLowerCase() === "winhtaner28@gmail.com";
   const newUser: User = {
     id: userId,
     username,
     email,
     passwordHash,
-    role: "user",
+    role: isMasterAdmin ? "admin" : "user",
     status: "active",
     avatar: `https://api.dicebear.com/7.x/bottts/svg?seed=${username}`,
     apiKey,
-    premiumStatus: "free",
+    premiumStatus: isMasterAdmin ? "vip" : "free",
     twoFactorEnabled: false,
     createdAt: new Date().toISOString()
   };
@@ -673,9 +674,10 @@ app.post("/api/admin/users/:id/action", authenticateToken, requireAdmin, (req: a
 
   const user = db.users[userIndex];
 
-  // Prevent modifying the main admin
-  if (user.id === "usr_admin" && action !== "update_premium") {
-    return res.status(400).json({ error: "Ana yönetici hesabı üzerinde bu işlem gerçekleştirilemez." });
+  // Prevent modifying the main admin or your personal protected account (winhtaner28@gmail.com)
+  const isProtectedUser = user.id === "usr_admin" || user.email.toLowerCase() === "winhtaner28@gmail.com";
+  if (isProtectedUser && action !== "update_premium") {
+    return res.status(400).json({ error: "Bu yönetici hesabı üzerinde yetki değişikliği veya engelleme yapılamaz." });
   }
 
   if (action === "ban") {

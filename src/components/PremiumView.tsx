@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Sparkles, Check, Flame, Shield, HelpCircle, Trophy, Zap, AlertCircle } from "lucide-react";
 import { User } from "../types";
 import { api } from "../api";
@@ -14,6 +14,19 @@ export default function PremiumView({ user, onUpgradeSuccess, onOpenAuth }: Prem
   const [loading, setLoading] = useState<string | null>(null);
   const [success, setSuccess] = useState("");
   const [checkoutPlan, setCheckoutPlan] = useState<any | null>(null);
+  const [premiumPrice, setPremiumPrice] = useState("149");
+  const [vipPrice, setVipPrice] = useState("399");
+
+  useEffect(() => {
+    api.getSettings()
+      .then(res => {
+        if (res.success && res.settings) {
+          if (res.settings.premium_price) setPremiumPrice(res.settings.premium_price);
+          if (res.settings.vip_price) setVipPrice(res.settings.vip_price);
+        }
+      })
+      .catch(err => console.error("Fiyat ayarları alınamadı:", err));
+  }, []);
 
   const plans = [
     {
@@ -38,7 +51,7 @@ export default function PremiumView({ user, onUpgradeSuccess, onOpenAuth }: Prem
       id: "premium",
       name: "Premium Üye",
       tag: "En Popüler Paket",
-      price: "149",
+      price: premiumPrice,
       description: "Hızlı, sınırsız ve yüksek çözünürlüklü indirme deneyimi arayanlar için.",
       features: [
         "4K (2160p) Ultra HD indirme kalitesi",
@@ -58,7 +71,7 @@ export default function PremiumView({ user, onUpgradeSuccess, onOpenAuth }: Prem
       id: "vip",
       name: "VIP Kurumsal",
       tag: "Sınırsız Güç & API",
-      price: "399",
+      price: vipPrice,
       description: "Geliştiriciler, içerik üreticileri ve arşivciler için tasarlanmış en üstün paket.",
       features: [
         "8K (4320p) Ultra HD indirme desteği",
