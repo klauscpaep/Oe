@@ -63,7 +63,14 @@ function authenticateToken(req: any, res: any, next: any) {
     }
     if (dbUser.status === "banned") {
       const banInfo = db.banned_users.find(b => b.userId === dbUser.id);
-      return res.status(403).json({ error: `Hesabınız engellenmiştir. Gerekçe: ${banInfo?.reason || "Kural ihlali"}` });
+      return res.status(403).json({ 
+        error: `Hesabınız engellenmiştir. Gerekçe: ${banInfo?.reason || "Kural ihlali"}`,
+        banned: true,
+        userId: dbUser.id,
+        username: dbUser.username,
+        email: dbUser.email,
+        reason: banInfo?.reason || "Kural ihlali"
+      });
     }
     req.user = dbUser;
     next();
@@ -174,7 +181,14 @@ app.post("/api/auth/login", (req, res) => {
 
   if (user.status === "banned") {
     const banInfo = db.banned_users.find(b => b.userId === user.id);
-    return res.status(403).json({ error: `Hesabınız engellenmiştir. Gerekçe: ${banInfo?.reason || "Kural ihlali"}` });
+    return res.status(403).json({ 
+      error: `Hesabınız engellenmiştir. Gerekçe: ${banInfo?.reason || "Kural ihlali"}`,
+      banned: true,
+      userId: user.id,
+      username: user.username,
+      email: user.email,
+      reason: banInfo?.reason || "Kural ihlali"
+    });
   }
 
   const isPasswordValid = bcrypt.compareSync(password, user.passwordHash);
@@ -749,6 +763,78 @@ app.post("/api/admin/users/:id/action", authenticateToken, requireAdmin, (req: a
   dbInstance.save({ users: db.users, banned_users: db.banned_users });
 
   res.json({ success: true, user, message: "İşlem başarıyla uygulandı." });
+});
+
+// Submit Ban Appeal (Public Endpoint)
+app.post("/api/auth/ban-appeal", (req: any, res) => {
+  const { userId, username, email, reason, appealMessage } = req.body;
+  if (!userId || !appealMessage) {
+    return res.status(400).json({ error: "Eksik parametreler. Kullanıcı ID'si ve itiraz mesajı zorunludur." });
+  }
+
+  const db = dbInstance.getData();
+  
+  // Check if there's already a pending appeal for this user to avoid spam
+  const existing = db.ban_appeals.find(a => a.userId === userId && a.status === "pending");
+  if (existing) {
+    return res.status(400).json({ error: "Zaten açıkta bekleyen bir itirazınız bulunmaktadır. Lütfen yöneticilerin incelemesini bekleyin." });
+  }
+
+  const newAppeal = {
+    id: "appeal_" + Date.now(),
+    userId,
+    username: username || "Bilinmeyen Kullanıcı",
+    email: email || "Bilinmeyen E-posta",
+    reason: reason || "Belirtilmemiş",
+    appealMessage,
+    status: "pending" as const,
+    createdAt: new Date().toISOString()
+  };
+
+  db.ban_appeals.push(newAppeal);
+  dbInstance.save({ ban_appeals: db.ban_appeals });
+
+  res.json({ success: true, message: "İtirazınız başarıyla yöneticilere iletildi. İncelenip en kısa sürede karar verilecektir." });
+});
+
+// List Ban Appeals (Admin Only)
+app.get("/api/admin/ban-appeals", authenticateToken, requireAdmin, (req: any, res) => {
+  const db = dbInstance.getData();
+  res.json({ success: true, banAppeals: db.ban_appeals });
+});
+
+// Take Action on Ban Appeal (Admin Only)
+app.post("/api/admin/ban-appeals/:id/action", authenticateToken, requireAdmin, (req: any, res) => {
+  const { action } = req.body; // "approve" (unban) or "reject"
+  const appealId = req.params.id;
+
+  const db = dbInstance.getData();
+  const appealIndex = db.ban_appeals.findIndex(a => a.id === appealId);
+  if (appealIndex === -1) {
+    return res.status(404).json({ error: "İtiraz kaydı bulunamadı." });
+  }
+
+  const appeal = db.ban_appeals[appealIndex];
+  
+  if (action === "approve") {
+    appeal.status = "approved";
+    
+    // Unban the user
+    const userIndex = db.users.findIndex(u => u.id === appeal.userId);
+    if (userIndex !== -1) {
+      db.users[userIndex].status = "active";
+      db.banned_users = db.banned_users.filter(b => b.userId !== appeal.userId);
+      addLog("info", `Yasaklı kullanıcı itirazı onaylandı ve engel kaldırıldı: ${db.users[userIndex].username}`, req);
+    }
+  } else if (action === "reject") {
+    appeal.status = "rejected";
+    addLog("warning", `Yasaklı kullanıcı itirazı reddedildi: ${appeal.username}`, req);
+  }
+
+  db.ban_appeals[appealIndex] = appeal;
+  dbInstance.save({ ban_appeals: db.ban_appeals, users: db.users, banned_users: db.banned_users });
+
+  res.json({ success: true, message: `İtiraz başarıyla ${action === "approve" ? "onaylandı ve engel kaldırıldı" : "reddedildi"}.` });
 });
 
 // Admin Blog Yönetimi

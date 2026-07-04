@@ -28,7 +28,15 @@ async function request(url: string, options: RequestInit = {}) {
   const data = await response.json();
 
   if (!response.ok) {
-    throw new Error(data.error || "Bir hata oluştu.");
+    const err = new Error(data.error || "Bir hata oluştu.") as any;
+    if (data.banned) {
+      err.banned = data.banned;
+      err.userId = data.userId;
+      err.username = data.username;
+      err.email = data.email;
+      err.reason = data.reason;
+    }
+    throw err;
   }
 
   return data;
@@ -47,6 +55,8 @@ export const api = {
   deleteAccount: () => request("/api/profile/delete", { method: "POST" }),
   toggle2FA: () => request("/api/auth/2fa/toggle", { method: "POST" }),
   regenerateApiKey: () => request("/api/api-key/regenerate", { method: "POST" }),
+  submitBanAppeal: (payload: { userId: string; username: string; email: string; reason: string; appealMessage: string }) => 
+    request("/api/auth/ban-appeal", { method: "POST", body: JSON.stringify(payload) }),
 
   // Video / Audio Downloader
   getVideoInfo: (url: string, platform?: string) => request("/api/video/info", { method: "POST", body: JSON.stringify({ url, platform }) }),
@@ -87,6 +97,9 @@ export const api = {
     deleteAnnouncement: (id: string) => request(`/api/admin/announcements/${id}`, { method: "DELETE" }),
     saveSettings: (settings: { key: string; value: string }[]) => request("/api/admin/settings", { method: "POST", body: JSON.stringify({ settings }) }),
     clearCache: () => request("/api/admin/clear-cache", { method: "POST" }),
-    clearLogs: () => request("/api/admin/clear-logs", { method: "POST" })
+    clearLogs: () => request("/api/admin/clear-logs", { method: "POST" }),
+    getBanAppeals: () => request("/api/admin/ban-appeals"),
+    actionBanAppeal: (id: string, action: "approve" | "reject") => 
+      request(`/api/admin/ban-appeals/${id}/action`, { method: "POST", body: JSON.stringify({ action }) })
   }
 };

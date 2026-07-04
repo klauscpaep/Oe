@@ -10,7 +10,15 @@ interface AuthModalProps {
 }
 
 export default function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps) {
-  const [mode, setMode] = useState<"login" | "register" | "forgot" | "twoFactor">("login");
+  const [mode, setMode] = useState<"login" | "register" | "forgot" | "twoFactor" | "banned">("login");
+  const [bannedUser, setBannedUser] = useState<{
+    userId: string;
+    username: string;
+    email: string;
+    reason: string;
+  } | null>(null);
+  const [appealMessage, setAppealMessage] = useState("");
+  const [appealSubmitted, setAppealSubmitted] = useState(false);
   const [email, setEmail] = useState("");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
@@ -87,7 +95,43 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps
         }
       }
     } catch (err: any) {
-      setError(err.message || "İşlem başarısız oldu.");
+      if (err.banned) {
+        setBannedUser({
+          userId: err.userId,
+          username: err.username,
+          email: err.email,
+          reason: err.reason
+        });
+        setAppealSubmitted(false);
+        setAppealMessage("");
+        setMode("banned");
+      } else {
+        setError(err.message || "İşlem başarısız oldu.");
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleAppealSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!bannedUser) return;
+    setError("");
+    setLoading(true);
+    try {
+      const res = await api.submitBanAppeal({
+        userId: bannedUser.userId,
+        username: bannedUser.username,
+        email: bannedUser.email,
+        reason: bannedUser.reason,
+        appealMessage
+      });
+      if (res.success) {
+        setAppealSubmitted(true);
+        setSuccessMsg(res.message);
+      }
+    } catch (err: any) {
+      setError(err.message || "İtiraz gönderilemedi.");
     } finally {
       setLoading(false);
     }
@@ -125,12 +169,14 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps
             {mode === "register" && "Ücretsiz Hesap Oluşturun"}
             {mode === "forgot" && "Şifremi Unuttum"}
             {mode === "twoFactor" && "İki Adımlı Doğrulama (2FA)"}
+            {mode === "banned" && "Ban Yedin Kanka! 🔒"}
           </h3>
           <p className="text-slate-400 text-xs mt-1">
             {mode === "login" && "Videolarınızı indirmeye ve dönüştürmeye hemen başlayın."}
             {mode === "register" && "İndirme geçmişini görmek ve favorilere kaydetmek için kaydolun."}
             {mode === "forgot" && "Kayıtlı e-posta adresinizi girerek şifrenizi yenileyin."}
             {mode === "twoFactor" && "Lütfen cep telefonunuzdaki doğrulama uygulamasından gelen 6 haneli kodu giriniz."}
+            {mode === "banned" && "Kurallara uymadığın tespit edildiği için bu hesaba erişimin geçici veya kalıcı olarak engellendi."}
           </p>
         </div>
 
@@ -150,7 +196,49 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps
         )}
 
         {/* AUTH FORMS */}
-        {mode !== "twoFactor" ? (
+        {mode === "banned" ? (
+          /* BANNED APPEAL FORM */
+          <form onSubmit={handleAppealSubmit} className="space-y-4">
+            <div className="bg-slate-950/60 p-4 border border-rose-500/25 rounded-2xl space-y-2">
+              <p className="text-rose-400 text-xs font-semibold">Hesap Bilgileri:</p>
+              <div className="text-slate-300 text-xs space-y-1 font-mono">
+                <div><span className="text-slate-500">Kullanıcı:</span> {bannedUser?.username}</div>
+                <div><span className="text-slate-500">E-posta:</span> {bannedUser?.email}</div>
+                <div><span className="text-slate-500">Ban Nedeni:</span> <span className="text-rose-300 font-sans font-medium">{bannedUser?.reason}</span></div>
+              </div>
+            </div>
+
+            {!appealSubmitted ? (
+              <>
+                <div>
+                  <label className="block text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-1.5">
+                    İtiraz Açıklaması
+                  </label>
+                  <textarea
+                    required
+                    rows={4}
+                    placeholder="Engelim neden kaldırılmalı? Lütfen durumunuzu açıklayan samimi bir mesaj yazın..."
+                    value={appealMessage}
+                    onChange={(e) => setAppealMessage(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-800 text-slate-200 p-3 rounded-xl text-xs focus:outline-none focus:border-rose-500 focus:ring-1 focus:ring-rose-500 transition-all resize-none"
+                  />
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="w-full bg-gradient-to-r from-rose-500 to-rose-600 hover:from-rose-600 hover:to-rose-700 disabled:opacity-50 text-white font-semibold py-3 px-4 rounded-xl text-xs shadow-lg shadow-rose-500/10 transition-all cursor-pointer"
+                >
+                  {loading ? "Gönderiliyor..." : "İtiraz Formunu Gönder"}
+                </button>
+              </>
+            ) : (
+              <div className="text-center py-4 text-teal-400 text-xs font-medium">
+                itiraz formunuz yöneticilere iletildi. En kısa sürede incelenecektir.
+              </div>
+            )}
+          </form>
+        ) : mode !== "twoFactor" ? (
           <form onSubmit={handleSubmit} className="space-y-4">
             {/* Username for register only */}
             {mode === "register" && (
@@ -285,7 +373,7 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps
         )}
 
         {/* Social logins */}
-        {mode !== "twoFactor" && (
+        {mode !== "twoFactor" && mode !== "banned" && (
           <div className="mt-6 pt-6 border-t border-slate-850">
             <div className="relative flex justify-center text-xs mb-4">
               <span className="bg-slate-900 px-3 text-slate-500">Veya şununla bağlanın</span>
@@ -323,7 +411,18 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps
         {/* Form Toggle buttons */}
         {mode !== "twoFactor" && (
           <div className="mt-6 text-center text-xs text-slate-500 font-medium">
-            {mode === "login" ? (
+            {mode === "banned" ? (
+              <button
+                onClick={() => {
+                  setMode("login");
+                  setError("");
+                  setSuccessMsg("");
+                }}
+                className="text-rose-400 hover:text-rose-300 font-bold transition-colors"
+              >
+                Giriş Ekranına Dön
+              </button>
+            ) : mode === "login" ? (
               <span>
                 Hesabınız yok mu?{" "}
                 <button onClick={() => setMode("register")} className="text-rose-400 hover:text-rose-300 font-bold transition-colors">

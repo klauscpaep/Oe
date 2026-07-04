@@ -72,6 +72,8 @@ export default function App() {
   const [contactMessage, setContactMessage] = useState("");
   const [contactSuccess, setContactSuccess] = useState("");
 
+  const isAds = siteSettings.ads_enabled === "true" && (!user || user.premiumStatus === "free");
+
   // Check login & load public content
   const initApp = async () => {
     try {
@@ -142,6 +144,28 @@ export default function App() {
   useEffect(() => {
     initApp();
   }, []);
+
+  // Gelişmiş Popunder & Reklam scripti tetikleyici
+  useEffect(() => {
+    if (isAds && siteSettings.ad_slot_popunder) {
+      try {
+        const div = document.createElement("div");
+        div.innerHTML = siteSettings.ad_slot_popunder;
+        const scripts = Array.from(div.getElementsByTagName("script"));
+        scripts.forEach((oldScript) => {
+          const newScript = document.createElement("script");
+          if (oldScript.src) {
+            newScript.src = oldScript.src;
+          } else {
+            newScript.textContent = oldScript.textContent;
+          }
+          document.body.appendChild(newScript);
+        });
+      } catch (e) {
+        console.warn("Popunder/Popup reklam yükleme hatası:", e);
+      }
+    }
+  }, [isAds, siteSettings.ad_slot_popunder]);
 
   const handleLogout = () => {
     setAuthToken(null);
@@ -263,8 +287,6 @@ export default function App() {
     return <InstallWizard onInstalled={() => initApp()} />;
   }
 
-  const isAds = siteSettings.ads_enabled === "true" && (!user || user.premiumStatus === "free");
-
   return (
     <div className="flex flex-col min-h-screen bg-slate-950 text-slate-100 font-sans selection:bg-rose-500 selection:text-white">
       
@@ -294,9 +316,16 @@ export default function App() {
         {/* AdSense Top Header Banner placeholder */}
         {isAds && (
           <div className="max-w-4xl mx-auto px-4 pt-6">
-            <div className="bg-slate-900/30 border border-slate-900 rounded-2xl p-4 text-center text-[10px] text-slate-600 tracking-wider uppercase font-mono">
-              REKLAM ALANI (Google AdSense: {siteSettings.adsense_client_id})
-            </div>
+            {siteSettings.ad_slot_header ? (
+              <div 
+                className="w-full overflow-hidden flex justify-center items-center"
+                dangerouslySetInnerHTML={{ __html: siteSettings.ad_slot_header }}
+              />
+            ) : (
+              <div className="bg-slate-900/30 border border-slate-900 rounded-2xl p-4 text-center text-[10px] text-slate-600 tracking-wider uppercase font-mono">
+                REKLAM ALANI (Google AdSense: {siteSettings.adsense_client_id})
+              </div>
+            )}
           </div>
         )}
 
@@ -505,6 +534,13 @@ export default function App() {
                               </button>
                             )}
                           </div>
+
+                          {isAds && siteSettings.ad_slot_download && (
+                            <div 
+                              className="mt-4 pt-4 border-t border-slate-900/40 w-full overflow-hidden flex justify-center items-center"
+                              dangerouslySetInnerHTML={{ __html: siteSettings.ad_slot_download }}
+                            />
+                          )}
 
                         </div>
                       </div>
@@ -791,9 +827,16 @@ export default function App() {
         {/* AdSense Bottom Footer Banner placeholder */}
         {isAds && (
           <div className="max-w-4xl mx-auto px-4 pb-12">
-            <div className="bg-slate-900/30 border border-slate-900 rounded-2xl p-4 text-center text-[10px] text-slate-600 tracking-wider uppercase font-mono">
-              REKLAM ALANI (Google AdSense: {siteSettings.adsense_client_id})
-            </div>
+            {siteSettings.ad_slot_sidebar ? (
+              <div 
+                className="w-full overflow-hidden flex justify-center items-center"
+                dangerouslySetInnerHTML={{ __html: siteSettings.ad_slot_sidebar }}
+              />
+            ) : (
+              <div className="bg-slate-900/30 border border-slate-900 rounded-2xl p-4 text-center text-[10px] text-slate-600 tracking-wider uppercase font-mono">
+                REKLAM ALANI (Google AdSense: {siteSettings.adsense_client_id})
+              </div>
+            )}
           </div>
         )}
 

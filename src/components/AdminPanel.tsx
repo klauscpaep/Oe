@@ -35,7 +35,7 @@ interface AdminPanelProps {
 }
 
 export default function AdminPanel({ currentUser, onRefreshData }: AdminPanelProps) {
-  const [activeTab, setActiveTab] = useState<"dashboard" | "users" | "announcements" | "blog" | "settings" | "cache" | "tickets">("dashboard");
+  const [activeTab, setActiveTab] = useState<"dashboard" | "users" | "announcements" | "blog" | "settings" | "cache" | "tickets" | "appeals">("dashboard");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
@@ -50,6 +50,7 @@ export default function AdminPanel({ currentUser, onRefreshData }: AdminPanelPro
   const [userList, setUserList] = useState<User[]>([]);
   const [annList, setAnnList] = useState<any[]>([]);
   const [ticketsList, setTicketsList] = useState<any[]>([]);
+  const [banAppeals, setBanAppeals] = useState<any[]>([]);
 
   // Deletion confirmation states
   const [deletingAnnId, setDeletingAnnId] = useState<string | null>(null);
@@ -83,6 +84,10 @@ export default function AdminPanel({ currentUser, onRefreshData }: AdminPanelPro
   const [maintenanceMode, setMaintenanceMode] = useState("false");
   const [adsEnabled, setAdsEnabled] = useState("true");
   const [adsenseClient, setAdsenseClient] = useState("");
+  const [adSlotHeader, setAdSlotHeader] = useState("");
+  const [adSlotDownload, setAdSlotDownload] = useState("");
+  const [adSlotSidebar, setAdSlotSidebar] = useState("");
+  const [adSlotPopunder, setAdSlotPopunder] = useState("");
   const [freeSpeed, setFreeSpeed] = useState("5");
   const [premiumSpeed, setPremiumSpeed] = useState("100");
   const [premiumPrice, setPremiumPrice] = useState("149");
@@ -119,6 +124,16 @@ export default function AdminPanel({ currentUser, onRefreshData }: AdminPanelPro
         setTicketsList(ticketsRes.tickets);
       }
 
+      // Fetch ban appeals
+      try {
+        const appealsRes = await api.admin.getBanAppeals();
+        if (appealsRes.success) {
+          setBanAppeals(appealsRes.banAppeals);
+        }
+      } catch (e) {
+        console.warn("Could not load ban appeals", e);
+      }
+
       // Fetch settings to fill inputs
       const settingsRes = await api.getSettings();
       if (settingsRes.success) {
@@ -128,6 +143,10 @@ export default function AdminPanel({ currentUser, onRefreshData }: AdminPanelPro
         if (s.maintenance_mode) setMaintenanceMode(s.maintenance_mode);
         if (s.ads_enabled) setAdsEnabled(s.ads_enabled);
         if (s.adsense_client_id) setAdsenseClient(s.adsense_client_id);
+        if (s.ad_slot_header) setAdSlotHeader(s.ad_slot_header);
+        if (s.ad_slot_download) setAdSlotDownload(s.ad_slot_download);
+        if (s.ad_slot_sidebar) setAdSlotSidebar(s.ad_slot_sidebar);
+        if (s.ad_slot_popunder) setAdSlotPopunder(s.ad_slot_popunder);
         if (s.free_download_speed) setFreeSpeed(s.free_download_speed);
         if (s.premium_download_speed) setPremiumSpeed(s.premium_download_speed);
         if (s.premium_price) setPremiumPrice(s.premium_price);
@@ -148,6 +167,21 @@ export default function AdminPanel({ currentUser, onRefreshData }: AdminPanelPro
   const handleUserAction = async (userId: string, action: string, extra: any = {}) => {
     try {
       const res = await api.admin.userAction(userId, { action, ...extra });
+      if (res.success) {
+        setSuccess(res.message);
+        loadDashboardData();
+        if (onRefreshData) onRefreshData();
+        setTimeout(() => setSuccess(""), 3000);
+      }
+    } catch (err: any) {
+      setError(err.message || "İşlem gerçekleştirilemedi.");
+      setTimeout(() => setError(""), 3000);
+    }
+  };
+
+  const handleBanAppealAction = async (appealId: string, action: "approve" | "reject") => {
+    try {
+      const res = await api.admin.actionBanAppeal(appealId, action);
       if (res.success) {
         setSuccess(res.message);
         loadDashboardData();
@@ -383,6 +417,10 @@ export default function AdminPanel({ currentUser, onRefreshData }: AdminPanelPro
         { key: "maintenance_mode", value: maintenanceMode },
         { key: "ads_enabled", value: adsEnabled },
         { key: "adsense_client_id", value: adsenseClient },
+        { key: "ad_slot_header", value: adSlotHeader },
+        { key: "ad_slot_download", value: adSlotDownload },
+        { key: "ad_slot_sidebar", value: adSlotSidebar },
+        { key: "ad_slot_popunder", value: adSlotPopunder },
         { key: "free_download_speed", value: freeSpeed },
         { key: "premium_download_speed", value: premiumSpeed },
         { key: "premium_price", value: premiumPrice },
@@ -500,6 +538,20 @@ export default function AdminPanel({ currentUser, onRefreshData }: AdminPanelPro
           >
             <LifeBuoy className="h-4 w-4" />
             <span>Destek Talepleri</span>
+          </button>
+          <button
+            onClick={() => setActiveTab("appeals")}
+            className={`w-full flex items-center space-x-2 px-4 py-3 rounded-xl text-xs font-semibold uppercase tracking-wider transition-all ${
+              activeTab === "appeals" ? "bg-teal-500/10 text-teal-400 border border-teal-500/25" : "text-slate-400 hover:text-white"
+            }`}
+          >
+            <ShieldAlert className="h-4 w-4 text-rose-400" />
+            <span>Ban İtirazları</span>
+            {banAppeals.filter(a => a.status === "pending").length > 0 && (
+              <span className="ml-auto bg-rose-500/15 text-rose-400 border border-rose-500/20 text-[10px] font-bold px-1.5 py-0.5 rounded-full shrink-0">
+                {banAppeals.filter(a => a.status === "pending").length}
+              </span>
+            )}
           </button>
           <button
             onClick={() => setActiveTab("settings")}
@@ -1192,6 +1244,61 @@ export default function AdminPanel({ currentUser, onRefreshData }: AdminPanelPro
                   </div>
                 </div>
 
+                {/* Gelişmiş Reklam Yönetim Alanları */}
+                <div className="border-t border-slate-900/60 pt-4 space-y-4">
+                  <h4 className="text-xs font-bold text-teal-400 uppercase tracking-wider flex items-center space-x-1.5">
+                    <Megaphone className="h-3.5 w-3.5" />
+                    <span>Gelişmiş Reklam Yerleşimi (HTML / JS / Iframe)</span>
+                  </h4>
+                  <p className="text-slate-500 text-[11px] -mt-2">Google AdSense, Popunder veya diğer reklam ağlarından aldığınız reklam kodlarını aşağıdaki alanlara yapıştırarak sitenize entegre edebilirsiniz.</p>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2">Üst Banner Reklam Kodu (Header Ad)</label>
+                      <textarea
+                        rows={3}
+                        value={adSlotHeader}
+                        onChange={(e) => setAdSlotHeader(e.target.value)}
+                        placeholder="<a href='#'><img src='banner.png' /></a> veya AdSense kodu..."
+                        className="w-full bg-slate-950 border border-slate-900 rounded-xl px-4 py-2 text-xs text-slate-100 focus:outline-none font-mono resize-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2">İndirme Sayfası Reklam Kodu (Download Page Ad)</label>
+                      <textarea
+                        rows={3}
+                        value={adSlotDownload}
+                        onChange={(e) => setAdSlotDownload(e.target.value)}
+                        placeholder="İndirme butonu altındaki reklam kodu..."
+                        className="w-full bg-slate-950 border border-slate-900 rounded-xl px-4 py-2 text-xs text-slate-100 focus:outline-none font-mono resize-none"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2">Yan Menü / Sidebar Reklam Kodu (Sidebar Ad)</label>
+                      <textarea
+                        rows={3}
+                        value={adSlotSidebar}
+                        onChange={(e) => setAdSlotSidebar(e.target.value)}
+                        placeholder="Sol/Sağ boşluklardaki dikey banner kodları..."
+                        className="w-full bg-slate-950 border border-slate-900 rounded-xl px-4 py-2 text-xs text-slate-100 focus:outline-none font-mono resize-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2">Popunder / Arka Plan Pop-up Reklam Kodu (Popunder Ad)</label>
+                      <textarea
+                        rows={3}
+                        value={adSlotPopunder}
+                        onChange={(e) => setAdSlotPopunder(e.target.value)}
+                        placeholder="Ziyaretçi tıkladığında açılan reklam script kodları..."
+                        className="w-full bg-slate-950 border border-slate-900 rounded-xl px-4 py-2 text-xs text-slate-100 focus:outline-none font-mono resize-none"
+                      />
+                    </div>
+                  </div>
+                </div>
+
                 {/* Üyelik Paket Ücretleri */}
                 <div className="border-t border-slate-900/60 pt-4 space-y-4">
                   <h4 className="text-xs font-bold text-teal-400 uppercase tracking-wider flex items-center space-x-1.5">
@@ -1504,6 +1611,97 @@ export default function AdminPanel({ currentUser, onRefreshData }: AdminPanelPro
                 </div>
 
               </div>
+            </div>
+          )}
+
+          {/* BAN APPEALS TAB */}
+          {activeTab === "appeals" && (
+            <div className="space-y-6">
+              <div className="flex justify-between items-center">
+                <div>
+                  <h3 className="text-sm font-semibold tracking-wider uppercase text-slate-400 flex items-center space-x-2">
+                    <ShieldAlert className="h-4.5 w-4.5 text-rose-500" />
+                    <span>Kullanıcı Ban İtiraz Başvuruları</span>
+                  </h3>
+                  <p className="text-slate-500 text-[11px] mt-1">Yasaklanan kullanıcıların unban talepleri ve gerekçeleri burada listelenir.</p>
+                </div>
+              </div>
+
+              {banAppeals.length === 0 ? (
+                <div className="bg-slate-950 border border-slate-900 rounded-2xl p-8 text-center text-slate-500">
+                  Şu ana kadar yapılmış herhangi bir ban itirazı bulunmuyor.
+                </div>
+              ) : (
+                <div className="bg-slate-950 border border-slate-900 rounded-2xl overflow-hidden">
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-xs">
+                      <thead className="bg-slate-900 text-slate-400 font-bold uppercase tracking-wider text-[10px] border-b border-slate-900">
+                        <tr>
+                          <th className="p-4">Kullanıcı</th>
+                          <th className="p-4">E-posta</th>
+                          <th className="p-4">Orijinal Ban Nedeni</th>
+                          <th className="p-4 max-w-xs">Kullanıcı İtiraz Açıklaması</th>
+                          <th className="p-4">Gönderim Tarihi</th>
+                          <th className="p-4 text-center">Durum</th>
+                          <th className="p-4 text-center">İşlemler</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-900">
+                        {banAppeals.map((appeal: any) => (
+                          <tr key={appeal.id} className="hover:bg-slate-900/40 transition-colors">
+                            <td className="p-4 font-semibold text-slate-200">{appeal.username}</td>
+                            <td className="p-4 text-slate-400">{appeal.email}</td>
+                            <td className="p-4 text-rose-400 font-medium">{appeal.reason}</td>
+                            <td className="p-4 max-w-xs text-slate-300 whitespace-pre-line leading-relaxed">{appeal.appealMessage}</td>
+                            <td className="p-4 text-slate-500 font-mono text-[10px]">
+                              {new Date(appeal.createdAt).toLocaleDateString("tr-TR")} {new Date(appeal.createdAt).toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" })}
+                            </td>
+                            <td className="p-4 text-center">
+                              <span className={`inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold border ${
+                                appeal.status === "pending"
+                                  ? "bg-amber-500/10 border-amber-500/20 text-amber-400"
+                                  : appeal.status === "approved"
+                                  ? "bg-teal-500/10 border-teal-500/20 text-teal-400"
+                                  : "bg-rose-500/10 border-rose-500/20 text-rose-400"
+                              }`}>
+                                {appeal.status === "pending" && "Bekliyor"}
+                                {appeal.status === "approved" && "Kabul Edildi"}
+                                {appeal.status === "rejected" && "Reddedildi"}
+                              </span>
+                            </td>
+                            <td className="p-4">
+                              <div className="flex justify-center items-center space-x-2">
+                                {appeal.status === "pending" ? (
+                                  <>
+                                    <button
+                                      onClick={() => handleBanAppealAction(appeal.id, "approve")}
+                                      className="flex items-center space-x-1 px-2.5 py-1.5 bg-teal-500 hover:bg-teal-600 text-slate-950 font-bold rounded-lg text-[10px] transition-all cursor-pointer"
+                                      title="Banı Kaldır (Kabul Et)"
+                                    >
+                                      <Check className="h-3.5 w-3.5" />
+                                      <span>Banı Kaldır</span>
+                                    </button>
+                                    <button
+                                      onClick={() => handleBanAppealAction(appeal.id, "reject")}
+                                      className="flex items-center space-x-1 px-2.5 py-1.5 bg-rose-500/10 hover:bg-rose-500 hover:text-white text-rose-400 font-bold rounded-lg text-[10px] border border-rose-500/20 transition-all cursor-pointer"
+                                      title="Reddet"
+                                    >
+                                      <Trash2 className="h-3.5 w-3.5" />
+                                      <span>Reddet</span>
+                                    </button>
+                                  </>
+                                ) : (
+                                  <span className="text-[11px] text-slate-500 italic">İşlem Tamamlandı</span>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
