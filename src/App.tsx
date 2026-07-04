@@ -72,6 +72,22 @@ export default function App() {
   const [contactMessage, setContactMessage] = useState("");
   const [contactSuccess, setContactSuccess] = useState("");
 
+  const [bannedUserInfo, setBannedUserInfo] = useState<any>(null);
+  const [authModalMode, setAuthModalMode] = useState<"login" | "register" | "forgot" | "twoFactor" | "banned" | undefined>(undefined);
+
+  const handleApiError = (err: any) => {
+    if (err.banned) {
+      setBannedUserInfo({
+        userId: err.userId,
+        username: err.username,
+        email: err.email,
+        reason: err.reason
+      });
+      setAuthModalMode("banned");
+      setAuthOpen(true);
+    }
+  };
+
   const isAds = siteSettings.ads_enabled === "true" && (!user || user.premiumStatus === "free");
 
   // Check login & load public content
@@ -91,8 +107,12 @@ export default function App() {
           if (res.success) {
             setUser(res.user);
           }
-        } catch (err) {
-          setAuthToken(null);
+        } catch (err: any) {
+          if (err.banned) {
+            handleApiError(err);
+          } else {
+            setAuthToken(null);
+          }
         }
       }
 
@@ -201,6 +221,9 @@ export default function App() {
         setSelectedQuality(res.qualities[0]);
       }
     } catch (err: any) {
+      if (err.banned) {
+        handleApiError(err);
+      }
       setSearchError(err.message || "Video bilgileri alınamadı. Lütfen URL adresini kontrol edin.");
     } finally {
       setFetchingMetadata(false);
@@ -251,7 +274,10 @@ export default function App() {
         }, 150);
       }
     } catch (err: any) {
-      alert("İndirme işlemi başlatılamadı.");
+      if (err.banned) {
+        handleApiError(err);
+      }
+      alert(err.message || "İndirme işlemi başlatılamadı.");
       setDownloading(false);
     }
   };
@@ -848,8 +874,14 @@ export default function App() {
       {/* 5. Auth Modal Dialog */}
       <AuthModal 
         isOpen={authOpen} 
-        onClose={() => setAuthOpen(false)} 
+        onClose={() => {
+          setAuthOpen(false);
+          setAuthModalMode(undefined);
+          setBannedUserInfo(null);
+        }} 
         onSuccess={handleAuthSuccess} 
+        initialMode={authModalMode}
+        initialBannedUser={bannedUserInfo}
       />
 
       {/* 6. Active Popup Announcements */}

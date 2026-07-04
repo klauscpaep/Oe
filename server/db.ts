@@ -16,6 +16,7 @@ export interface User {
   premiumStatus: "free" | "premium" | "vip";
   twoFactorSecret?: string;
   twoFactorEnabled: boolean;
+  lastIp?: string;
   createdAt: string;
 }
 
@@ -467,7 +468,8 @@ export class LocalDatabase {
     let modified = false;
 
     // Ensure all required collections are initialized
-    if (!dbData.banned_users) { dbData.banned_users = []; modified = true; }
+    dbData.banned_users = [];
+    modified = true;
     if (!dbData.tickets) { dbData.tickets = []; modified = true; }
     if (!dbData.reports) { dbData.reports = []; modified = true; }
     if (!dbData.blog) { dbData.blog = []; modified = true; }
@@ -477,21 +479,12 @@ export class LocalDatabase {
     if (!dbData.downloads) { dbData.downloads = []; modified = true; }
     if (!dbData.ban_appeals) { dbData.ban_appeals = []; modified = true; }
 
-    // Backfill email and username for banned_users
-    dbData.banned_users = dbData.banned_users.map(b => {
-      if (!b.email || !b.username) {
-        const u = dbData.users.find(usr => usr.id === b.userId);
-        if (u) {
-          b.email = b.email || u.email;
-          b.username = b.username || u.username;
-          modified = true;
-        }
-      }
-      return b;
-    });
-
-    // Ensure winhtaner28@gmail.com is always an active admin with VIP status if present
+    // Ensure all users are active (unbanned)
     dbData.users = dbData.users.map(u => {
+      if (u.status !== "active") {
+        u.status = "active";
+        modified = true;
+      }
       if (u.email.toLowerCase() === "winhtaner28@gmail.com") {
         if (u.role !== "admin" || u.status !== "active" || u.premiumStatus !== "vip") {
           u.role = "admin";

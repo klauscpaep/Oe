@@ -64,7 +64,9 @@ export default function AdminPanel({ currentUser, onRefreshData }: AdminPanelPro
 
   // Forms / Management state
   const [searchQuery, setSearchQuery] = useState("");
+  const [userStatusFilter, setUserStatusFilter] = useState<"all" | "active" | "banned">("all");
   const [banReason, setBanReason] = useState("");
+  const [banningUser, setBanningUser] = useState<User | null>(null);
 
   // New Blog Form
   const [blogTitle, setBlogTitle] = useState("");
@@ -391,7 +393,6 @@ export default function AdminPanel({ currentUser, onRefreshData }: AdminPanelPro
   };
 
   const handleDeleteTicket = async (id: string) => {
-    if (!window.confirm("Bu destek biletini silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.")) return;
     try {
       const res = await api.admin.deleteTicket(id);
       if (res.success) {
@@ -399,6 +400,7 @@ export default function AdminPanel({ currentUser, onRefreshData }: AdminPanelPro
         if (activeAdminTicket && activeAdminTicket.id === id) {
           setActiveAdminTicket(null);
         }
+        setTicketsList(prev => prev.filter(t => t.id !== id));
         loadDashboardData();
         setTimeout(() => setSuccess(""), 3000);
       }
@@ -456,10 +458,14 @@ export default function AdminPanel({ currentUser, onRefreshData }: AdminPanelPro
     }
   };
 
-  const filteredUsers = userList.filter(u => 
-    u.username.toLowerCase().includes(searchQuery.toLowerCase()) || 
-    u.email.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredUsers = userList.filter(u => {
+    const matchesSearch = u.username.toLowerCase().includes(searchQuery.toLowerCase()) || 
+                          u.email.toLowerCase().includes(searchQuery.toLowerCase());
+    if (!matchesSearch) return false;
+    if (userStatusFilter === "active") return u.status === "active";
+    if (userStatusFilter === "banned") return u.status === "banned";
+    return true;
+  });
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
@@ -758,7 +764,7 @@ export default function AdminPanel({ currentUser, onRefreshData }: AdminPanelPro
           {/* USERS MANAGEMENT TAB */}
           {activeTab === "users" && (
             <div className="space-y-6">
-              <div className="flex items-center justify-between gap-4">
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div className="relative flex-1">
                   <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
                   <input
@@ -768,6 +774,38 @@ export default function AdminPanel({ currentUser, onRefreshData }: AdminPanelPro
                     onChange={(e) => setSearchQuery(e.target.value)}
                     className="w-full bg-slate-950 border border-slate-900 rounded-xl px-10 py-2.5 text-xs text-slate-100 focus:outline-none focus:border-teal-500"
                   />
+                </div>
+                <div className="flex bg-slate-950 p-1 rounded-xl border border-slate-900/60 space-x-1 self-start md:self-auto">
+                  <button
+                    onClick={() => setUserStatusFilter("all")}
+                    className={`px-3 py-1.5 rounded-lg text-[11px] font-semibold transition-all cursor-pointer ${
+                      userStatusFilter === "all"
+                        ? "bg-slate-800 text-slate-100"
+                        : "text-slate-500 hover:text-slate-300"
+                    }`}
+                  >
+                    Tümü ({userList.length})
+                  </button>
+                  <button
+                    onClick={() => setUserStatusFilter("active")}
+                    className={`px-3 py-1.5 rounded-lg text-[11px] font-semibold transition-all cursor-pointer ${
+                      userStatusFilter === "active"
+                        ? "bg-teal-500/20 text-teal-400 border border-teal-500/30"
+                        : "text-slate-500 hover:text-slate-300"
+                    }`}
+                  >
+                    Aktifler ({userList.filter(u => u.status === "active").length})
+                  </button>
+                  <button
+                    onClick={() => setUserStatusFilter("banned")}
+                    className={`px-3 py-1.5 rounded-lg text-[11px] font-semibold transition-all cursor-pointer ${
+                      userStatusFilter === "banned"
+                        ? "bg-rose-500/20 text-rose-400 border border-rose-500/30"
+                        : "text-slate-500 hover:text-slate-300"
+                    }`}
+                  >
+                    Yasaklılar ({userList.filter(u => u.status === "banned").length})
+                  </button>
                 </div>
               </div>
 
@@ -807,7 +845,7 @@ export default function AdminPanel({ currentUser, onRefreshData }: AdminPanelPro
                             u.status === "active" ? "bg-teal-500/10 text-teal-400 border-teal-500/20" :
                             "bg-rose-500/10 text-rose-400 border-rose-500/20"
                           }`}>
-                            {u.status === "active" ? "AKTİF" : "ENGELLE"}
+                            {u.status === "active" ? "AKTİF" : "YASAKLI"}
                           </span>
                         </td>
                         <td className="px-5 py-3.5 text-right space-x-1.5">
@@ -816,8 +854,8 @@ export default function AdminPanel({ currentUser, onRefreshData }: AdminPanelPro
                             u.status === "active" ? (
                               <button
                                 onClick={() => {
-                                  const r = prompt("Engelleme gerekçesini giriniz:");
-                                  if (r !== null) handleUserAction(u.id, "ban", { reason: r });
+                                  setBanningUser(u);
+                                  setBanReason("");
                                 }}
                                 className="text-[10px] bg-rose-500/10 text-rose-400 hover:bg-rose-500 hover:text-white px-2 py-1 rounded-lg border border-rose-500/20 transition-all font-semibold"
                               >
@@ -828,7 +866,7 @@ export default function AdminPanel({ currentUser, onRefreshData }: AdminPanelPro
                                 onClick={() => handleUserAction(u.id, "unban")}
                                 className="text-[10px] bg-teal-500/10 text-teal-400 hover:bg-teal-500 hover:text-white px-2 py-1 rounded-lg border border-teal-500/20 transition-all font-semibold"
                               >
-                                Kaldır
+                                Engeli Kaldır
                               </button>
                             )
                           )}
@@ -1520,14 +1558,41 @@ export default function AdminPanel({ currentUser, onRefreshData }: AdminPanelPro
                           </select>
 
                           {/* Delete Ticket Action */}
-                          <button
-                            type="button"
-                            onClick={() => handleDeleteTicket(activeAdminTicket.id)}
-                            className="p-1.5 bg-rose-500/10 hover:bg-rose-600 text-rose-400 hover:text-white border border-rose-500/20 hover:border-transparent rounded-xl transition-all cursor-pointer"
-                            title="Destek Talebini Tamamen Sil"
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </button>
+                          {deletingTicketId === activeAdminTicket.id ? (
+                            <div className="flex items-center space-x-1 flex-shrink-0">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  handleDeleteTicket(activeAdminTicket.id);
+                                  setDeletingTicketId(null);
+                                }}
+                                className="px-2 py-1 bg-rose-600 hover:bg-rose-700 text-white text-[10px] font-bold rounded-lg transition-all cursor-pointer"
+                              >
+                                Evet, Sil
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setDeletingTicketId(null)}
+                                className="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 text-[10px] font-bold rounded-lg transition-all cursor-pointer"
+                              >
+                                İptal
+                              </button>
+                            </div>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setDeletingTicketId(activeAdminTicket.id);
+                                setTimeout(() => {
+                                  setDeletingTicketId(prev => prev === activeAdminTicket.id ? null : prev);
+                                }, 5000); // revert back after 5s
+                              }}
+                              className="p-1.5 bg-rose-500/10 hover:bg-rose-600 text-rose-400 hover:text-white border border-rose-500/20 hover:border-transparent rounded-xl transition-all cursor-pointer"
+                              title="Destek Talebini Tamamen Sil"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                          )}
                         </div>
                       </div>
 
@@ -1743,6 +1808,53 @@ export default function AdminPanel({ currentUser, onRefreshData }: AdminPanelPro
 
         </div>
       </div>
+
+      {banningUser && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md" onClick={() => setBanningUser(null)}></div>
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-md p-6 relative z-10 shadow-2xl">
+            <h3 className="text-lg font-bold text-slate-200 mb-2 flex items-center space-x-2">
+              <ShieldAlert className="h-5 w-5 text-rose-400" />
+              <span>Kullanıcıyı Engelle</span>
+            </h3>
+            <p className="text-slate-400 text-xs mb-4">
+              <span className="font-semibold text-slate-300">{banningUser.username}</span> ({banningUser.email}) isimli kullanıcıyı engellemek üzeresiniz. Lütfen engelleme gerekçesini belirtin:
+            </p>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Engelleme Nedeni</label>
+                <input
+                  type="text"
+                  value={banReason}
+                  onChange={(e) => setBanReason(e.target.value)}
+                  placeholder="Kural ihlali, spam vb. (Boş bırakılırsa 'Kural ihlali' yazılacaktır)"
+                  className="w-full bg-slate-950 border border-slate-800 text-slate-200 rounded-xl px-4 py-3 text-xs focus:outline-none focus:border-rose-500/50 transition-all placeholder:text-slate-600"
+                  autoFocus
+                />
+              </div>
+              <div className="flex space-x-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setBanningUser(null)}
+                  className="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold py-2.5 rounded-xl text-xs border border-slate-700 transition-all cursor-pointer"
+                >
+                  Vazgeç
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    handleUserAction(banningUser.id, "ban", { reason: banReason || "Kural ihlali" });
+                    setBanningUser(null);
+                  }}
+                  className="flex-1 bg-rose-600 hover:bg-rose-500 text-white font-extrabold py-2.5 rounded-xl text-xs transition-all cursor-pointer"
+                >
+                  Engellemeyi Onayla
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

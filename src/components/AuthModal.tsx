@@ -7,9 +7,22 @@ interface AuthModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess: (user: any) => void;
+  initialMode?: "login" | "register" | "forgot" | "twoFactor" | "banned";
+  initialBannedUser?: {
+    userId: string;
+    username: string;
+    email: string;
+    reason: string;
+  } | null;
 }
 
-export default function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps) {
+export default function AuthModal({ 
+  isOpen, 
+  onClose, 
+  onSuccess, 
+  initialMode, 
+  initialBannedUser 
+}: AuthModalProps) {
   const [mode, setMode] = useState<"login" | "register" | "forgot" | "twoFactor" | "banned">("login");
   const [bannedUser, setBannedUser] = useState<{
     userId: string;
@@ -17,6 +30,24 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps
     email: string;
     reason: string;
   } | null>(null);
+
+  React.useEffect(() => {
+    if (isOpen) {
+      if (initialMode) {
+        setMode(initialMode);
+      } else {
+        setMode("login");
+      }
+      if (initialBannedUser !== undefined) {
+        setBannedUser(initialBannedUser);
+      } else {
+        setBannedUser(null);
+      }
+      setAppealSubmitted(false);
+      setSuccessMsg("");
+      setError("");
+    }
+  }, [isOpen, initialMode, initialBannedUser]);
   const [appealMessage, setAppealMessage] = useState("");
   const [appealSubmitted, setAppealSubmitted] = useState(false);
   const [email, setEmail] = useState("");

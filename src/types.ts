@@ -3,6 +3,7 @@ export interface User {
   username: string;
   email: string;
   role: "user" | "admin";
+  status: "active" | "banned";
   avatar: string;
   apiKey?: string;
   premiumStatus: "free" | "premium" | "vip";

@@ -29,10 +29,56 @@ function getGeminiClient(): GoogleGenAI | null {
 const app = express();
 app.use(express.json());
 
+function getClientIp(req: any): string {
+  const ip = (req.headers["x-forwarded-for"] as string) || req.socket?.remoteAddress || "127.0.0.1";
+  if (ip.includes(",")) {
+    return ip.split(",")[0].trim();
+  }
+  return ip;
+}
+
+// Middleware: IP Blacklist Check
+function ipBanCheck(req: any, res: any, next: any) {
+  // Allow public content access like settings, blog, announcements, health, and ban appeals
+  const allowedPaths = [
+    "/api/health",
+    "/api/settings",
+    "/api/blog",
+    "/api/announcements",
+    "/api/auth/ban-appeal"
+  ];
+
+  if (allowedPaths.includes(req.path)) {
+    return next();
+  }
+
+  const clientIp = getClientIp(req);
+  const db = dbInstance.getData();
+  
+  const banInfo = db.banned_users.find(b => 
+    b.ipAddress && b.ipAddress === clientIp && clientIp !== "127.0.0.1" && clientIp !== "::1" && clientIp !== "localhost"
+  );
+
+  if (banInfo) {
+    return res.status(403).json({
+      error: `Erişim Engellendi: Cihazınız veya IP adresiniz sistemden yasaklanmıştır. Sitede işlem yapamazsınız. Gerekçe: ${banInfo.reason || "Kural ihlali"}`,
+      banned: true,
+      userId: banInfo.userId || "usr_banned",
+      username: banInfo.username || "Ziyaretçi",
+      email: banInfo.email || "",
+      reason: banInfo.reason || "Kural ihlali"
+    });
+  }
+
+  next();
+}
+
+app.use(ipBanCheck);
+
 // Helper for logger
 function addLog(type: "info" | "warning" | "error" | "auth" | "download", message: string, req: express.Request) {
   const db = dbInstance.getData();
-  const ip = (req.headers["x-forwarded-for"] as string) || req.socket.remoteAddress || "127.0.0.1";
+  const ip = getClientIp(req);
   const newLog = {
     id: "log_" + Date.now() + "_" + Math.floor(Math.random() * 1000),
     type,
@@ -112,6 +158,26 @@ app.post("/api/auth/register", (req, res) => {
   }
 
   const db = dbInstance.getData();
+  const clientIp = getClientIp(req);
+
+  // Check if email, username, or IP is banned
+  const banInfo = db.banned_users.find(b => 
+    (b.email && b.email.toLowerCase() === email.toLowerCase()) ||
+    (b.username && b.username.toLowerCase() === username.toLowerCase()) ||
+    (b.ipAddress && b.ipAddress === clientIp && clientIp !== "127.0.0.1" && clientIp !== "::1")
+  );
+
+  if (banInfo) {
+    return res.status(403).json({
+      error: `Hesabınız, kullanıcı adınız veya IP adresiniz engellenmiştir. Yeni hesap oluşturamazsınız. Gerekçe: ${banInfo.reason || "Kural ihlali"}`,
+      banned: true,
+      userId: banInfo.userId || "usr_banned",
+      username: banInfo.username || username,
+      email: banInfo.email || email,
+      reason: banInfo.reason || "Kural ihlali"
+    });
+  }
+
   const emailExists = db.users.some(u => u.email.toLowerCase() === email.toLowerCase());
   const usernameExists = db.users.some(u => u.username.toLowerCase() === username.toLowerCase());
 
@@ -139,6 +205,7 @@ app.post("/api/auth/register", (req, res) => {
     apiKey,
     premiumStatus: isMasterAdmin ? "vip" : "free",
     twoFactorEnabled: false,
+    lastIp: clientIp,
     createdAt: new Date().toISOString()
   };
 
@@ -195,6 +262,10 @@ app.post("/api/auth/login", (req, res) => {
   if (!isPasswordValid) {
     return res.status(400).json({ error: "Geçersiz e-posta veya şifre." });
   }
+
+  const userIp = getClientIp(req);
+  user.lastIp = userIp;
+  dbInstance.save({ users: db.users });
 
   addLog("auth", `Kullanıcı giriş yaptı: ${user.username}`, req);
 
@@ -734,6 +805,9 @@ app.post("/api/admin/users/:id/action", authenticateToken, requireAdmin, (req: a
     db.banned_users.push({
       id: "ban_" + Date.now(),
       userId: user.id,
+      email: user.email,
+      username: user.username,
+      ipAddress: user.lastIp || "127.0.0.1",
       reason: reason || "Kural ihlali",
       createdAt: new Date().toISOString()
     });
