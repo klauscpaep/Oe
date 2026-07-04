@@ -13,7 +13,8 @@ import {
   HelpCircle, 
   Settings, 
   Terminal,
-  Database
+  Database,
+  Bell
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 
@@ -23,11 +24,13 @@ interface HeaderProps {
   setView: (view: string) => void;
   onOpenAuth: () => void;
   onLogout: () => void;
+  announcements?: any[];
 }
 
-export default function Header({ user, currentView, setView, onOpenAuth, onLogout }: HeaderProps) {
+export default function Header({ user, currentView, setView, onOpenAuth, onLogout, announcements = [] }: HeaderProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
+  const [announcementsOpen, setAnnouncementsOpen] = useState(false);
 
   const navItems = [
     { label: "Ana Sayfa", view: "home", icon: Download },
@@ -91,6 +94,74 @@ export default function Header({ user, currentView, setView, onOpenAuth, onLogou
 
           {/* User Account Controls */}
           <div className="hidden md:flex items-center space-x-4">
+            
+            {/* Announcements Bell Icon */}
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setAnnouncementsOpen(!announcementsOpen)}
+                className="relative p-2 text-slate-400 hover:text-white bg-slate-900 hover:bg-slate-800 rounded-xl border border-slate-800 transition-all cursor-pointer flex items-center justify-center"
+                title="Sistem Duyuruları"
+              >
+                <Bell className="h-4.5 w-4.5" />
+                {announcements.length > 0 && (
+                  <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-rose-500 ring-2 ring-slate-950 animate-pulse"></span>
+                )}
+              </button>
+
+              <AnimatePresence>
+                {announcementsOpen && (
+                  <>
+                    <div className="fixed inset-0 z-10" onClick={() => setAnnouncementsOpen(false)}></div>
+                    <motion.div
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: 10 }}
+                      className="absolute right-0 mt-2 w-80 rounded-2xl bg-slate-900 border border-slate-800/95 p-3 shadow-2xl z-50 max-h-96 overflow-y-auto"
+                    >
+                      <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2.5 px-1 border-b border-slate-800/80 pb-2 flex items-center justify-between">
+                        <span>Sistem Duyuruları</span>
+                        <span className="font-mono text-[10px] lowercase text-slate-500 font-normal">{announcements.length} adet</span>
+                      </h4>
+
+                      <div className="space-y-2">
+                        {announcements.length === 0 ? (
+                          <p className="text-[11px] text-slate-500 text-center py-4">Henüz duyuru bulunmuyor.</p>
+                        ) : (
+                          announcements.map((ann) => (
+                            <div key={ann.id} className="p-2.5 rounded-xl bg-slate-950/50 border border-slate-900 hover:border-slate-800 transition-all text-left">
+                              <div className="flex items-center space-x-1.5 mb-1 flex-wrap gap-1">
+                                <span className="text-xs font-bold text-slate-200">{ann.title}</span>
+                                {ann.isPinned && (
+                                  <span className="text-[8px] bg-amber-500/15 text-amber-400 border border-amber-500/10 px-1 rounded font-bold uppercase shrink-0">Sabit</span>
+                                )}
+                                <span className={`text-[8px] border px-1 rounded font-bold uppercase shrink-0 ${
+                                  ann.type === "popup"
+                                    ? "bg-rose-500/10 text-rose-400 border-rose-500/20"
+                                    : ann.type === "banner"
+                                    ? "bg-sky-500/10 text-sky-400 border-sky-500/20"
+                                    : "bg-teal-500/10 text-teal-400 border-teal-500/20"
+                                }`}>
+                                  {ann.type === "popup" ? "Popup" : ann.type === "banner" ? "Banner" : "Duyuru"}
+                                </span>
+                              </div>
+                              <div 
+                                className="text-[11px] text-slate-400 leading-relaxed break-words announcement-content"
+                                dangerouslySetInnerHTML={{ __html: ann.content }}
+                              />
+                              <span className="block text-[8px] text-slate-600 font-mono mt-2 text-right">
+                                {new Date(ann.createdAt).toLocaleDateString("tr-TR")}
+                              </span>
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    </motion.div>
+                  </>
+                )}
+              </AnimatePresence>
+            </div>
+
             {user ? (
               <div className="relative">
                 <button
@@ -196,6 +267,73 @@ export default function Header({ user, currentView, setView, onOpenAuth, onLogou
 
           {/* Mobile menu button */}
           <div className="flex md:hidden items-center space-x-2">
+            {/* Announcements Bell Icon (Mobile) */}
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setAnnouncementsOpen(!announcementsOpen)}
+                className="relative p-2 text-slate-400 hover:text-white bg-slate-900 hover:bg-slate-800 rounded-xl border border-slate-800 transition-all cursor-pointer flex items-center justify-center"
+                title="Sistem Duyuruları"
+              >
+                <Bell className="h-4 w-4" />
+                {announcements.length > 0 && (
+                  <span className="absolute top-1.5 right-1.5 h-1.5 w-1.5 rounded-full bg-rose-500 ring-2 ring-slate-950 animate-pulse"></span>
+                )}
+              </button>
+
+              <AnimatePresence>
+                {announcementsOpen && (
+                  <>
+                    <div className="fixed inset-0 z-10" onClick={() => setAnnouncementsOpen(false)}></div>
+                    <motion.div
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: 10 }}
+                      className="absolute right-0 mt-2 w-72 rounded-2xl bg-slate-900 border border-slate-800/95 p-3 shadow-2xl z-50 max-h-80 overflow-y-auto"
+                    >
+                      <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2.5 px-1 border-b border-slate-800/80 pb-2 flex items-center justify-between">
+                        <span>Sistem Duyuruları</span>
+                        <span className="font-mono text-[10px] lowercase text-slate-500 font-normal">{announcements.length} adet</span>
+                      </h4>
+
+                      <div className="space-y-2">
+                        {announcements.length === 0 ? (
+                          <p className="text-[11px] text-slate-500 text-center py-4">Henüz duyuru bulunmuyor.</p>
+                        ) : (
+                          announcements.map((ann) => (
+                            <div key={ann.id} className="p-2.5 rounded-xl bg-slate-950/50 border border-slate-900 hover:border-slate-800 transition-all text-left">
+                              <div className="flex items-center space-x-1.5 mb-1 flex-wrap gap-1">
+                                <span className="text-xs font-bold text-slate-200">{ann.title}</span>
+                                {ann.isPinned && (
+                                  <span className="text-[8px] bg-amber-500/15 text-amber-400 border border-amber-500/10 px-1 rounded font-bold uppercase shrink-0">Sabit</span>
+                                )}
+                                <span className={`text-[8px] border px-1 rounded font-bold uppercase shrink-0 ${
+                                  ann.type === "popup"
+                                    ? "bg-rose-500/10 text-rose-400 border-rose-500/20"
+                                    : ann.type === "banner"
+                                    ? "bg-sky-500/10 text-sky-400 border-sky-500/20"
+                                    : "bg-teal-500/10 text-teal-400 border-teal-500/20"
+                                }`}>
+                                  {ann.type === "popup" ? "Popup" : ann.type === "banner" ? "Banner" : "Duyuru"}
+                                </span>
+                              </div>
+                              <div 
+                                className="text-[11px] text-slate-400 leading-relaxed break-words announcement-content"
+                                dangerouslySetInnerHTML={{ __html: ann.content }}
+                              />
+                              <span className="block text-[8px] text-slate-600 font-mono mt-2 text-right">
+                                {new Date(ann.createdAt).toLocaleDateString("tr-TR")}
+                              </span>
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    </motion.div>
+                  </>
+                )}
+              </AnimatePresence>
+            </div>
+
             {user && (
               <img
                 src={user.avatar}

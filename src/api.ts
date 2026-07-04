@@ -67,12 +67,18 @@ export const api = {
 
   // Premium
   getSettings: () => request("/api/settings"),
-  activatePremium: (plan: "premium" | "vip") => request("/api/premium/activate", { method: "POST", body: JSON.stringify({ plan }) }),
+  activatePremium: (plan: "premium" | "vip", cardDetails?: { cardName: string; cardNumber: string; cardExpiry: string; cvv: string }) => 
+    request("/api/premium/activate", { method: "POST", body: JSON.stringify({ plan, ...cardDetails }) }),
 
   // Admin APIs
   admin: {
     getDashboard: () => request("/api/admin/dashboard"),
     getUsers: () => request("/api/admin/users"),
+    getAnnouncements: () => request("/api/admin/announcements"),
+    getTickets: () => request("/api/admin/tickets"),
+    updateTicketStatus: (id: string, status: "open" | "answered" | "closed") => 
+      request(`/api/admin/tickets/${id}/status`, { method: "POST", body: JSON.stringify({ status }) }),
+    deleteTicket: (id: string) => request(`/api/admin/tickets/${id}`, { method: "DELETE" }),
     userAction: (userId: string, payload: { action: string; reason?: string; plan?: string }) => 
       request(`/api/admin/users/${userId}/action`, { method: "POST", body: JSON.stringify(payload) }),
     createBlog: (payload: any) => request("/api/admin/blog", { method: "POST", body: JSON.stringify(payload) }),

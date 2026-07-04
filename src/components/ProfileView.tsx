@@ -26,7 +26,7 @@ interface ProfileViewProps {
 }
 
 export default function ProfileView({ user, onUpdateUser, onLogout }: ProfileViewProps) {
-  const [activeTab, setActiveTab] = useState<"details" | "history" | "api" | "security">("details");
+  const [activeTab, setActiveTab] = useState<"details" | "history" | "security">("details");
   const [downloads, setDownloads] = useState<Download[]>([]);
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState("");
@@ -204,15 +204,6 @@ export default function ProfileView({ user, onUpdateUser, onLogout }: ProfileVie
             <span>İndirme Geçmişim</span>
           </button>
           <button
-            onClick={() => setActiveTab("api")}
-            className={`w-full flex items-center space-x-2 px-4 py-3 rounded-xl text-xs font-semibold uppercase tracking-wider transition-all ${
-              activeTab === "api" ? "bg-rose-500/10 text-rose-400 border border-rose-500/20" : "text-slate-400 hover:text-white"
-            }`}
-          >
-            <Key className="h-4 w-4" />
-            <span>API Giriş Yetkisi</span>
-          </button>
-          <button
             onClick={() => setActiveTab("security")}
             className={`w-full flex items-center space-x-2 px-4 py-3 rounded-xl text-xs font-semibold uppercase tracking-wider transition-all ${
               activeTab === "security" ? "bg-rose-500/10 text-rose-400 border border-rose-500/20" : "text-slate-400 hover:text-white"
@@ -242,7 +233,35 @@ export default function ProfileView({ user, onUpdateUser, onLogout }: ProfileVie
 
           {/* DETAILS TAB */}
           {activeTab === "details" && (
-            <form onSubmit={handleUpdateProfile} className="space-y-6">
+            <div className="space-y-6">
+              {user.premiumStatus !== "free" && (
+                <div className="bg-gradient-to-r from-rose-500/10 to-purple-500/10 border border-rose-500/20 rounded-2xl p-5 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-2">
+                      <Star className="h-5 w-5 text-rose-400 animate-pulse" />
+                      <h4 className="text-sm font-bold text-slate-100 uppercase tracking-wider">Aktif Üyelik Detayları</h4>
+                    </div>
+                    <span className="text-[10px] bg-teal-500/20 text-teal-400 border border-teal-500/30 font-bold px-2.5 py-0.5 rounded-full uppercase">
+                      Aktif ve Ödendi
+                    </span>
+                  </div>
+                  
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+                    <div className="bg-slate-950 p-3.5 rounded-xl border border-slate-900">
+                      <span className="text-slate-500 text-[10px] uppercase block mb-1">Seçilen Paket</span>
+                      <span className="font-bold text-rose-400 uppercase">
+                        {user.premiumStatus === 'vip' ? '👑 VIP Kurumsal Üyelik' : '⭐ Premium Bireysel Üyelik'}
+                      </span>
+                    </div>
+                    <div className="bg-slate-950 p-3.5 rounded-xl border border-slate-900">
+                      <span className="text-slate-500 text-[10px] uppercase block mb-1">Ödeme Yöntemi</span>
+                      <span className="font-bold text-slate-200">💳 Kredi / Banka Kartı (Luhn Güvenli)</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              <form onSubmit={handleUpdateProfile} className="space-y-6">
               {/* Preset avatars picker */}
               <div>
                 <label className="block text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-3">Profil Avatarı Değiştir</label>
@@ -329,7 +348,8 @@ export default function ProfileView({ user, onUpdateUser, onLogout }: ProfileVie
                 {loading ? "Değişiklikler Kaydediliyor..." : "Profil Değişikliklerini Kaydet"}
               </button>
             </form>
-          )}
+          </div>
+        )}
 
           {/* HISTORY TAB */}
           {activeTab === "history" && (
@@ -378,76 +398,7 @@ export default function ProfileView({ user, onUpdateUser, onLogout }: ProfileVie
             </div>
           )}
 
-          {/* API ACCESS TAB */}
-          {activeTab === "api" && (
-            <div className="space-y-6 text-xs">
-              <div>
-                <h3 className="text-xs font-semibold tracking-wider uppercase text-slate-400 mb-2 flex items-center space-x-2">
-                  <Key className="h-4 w-4 text-rose-500" />
-                  <span>Kullanıcı REST API Bağlantısı</span>
-                </h3>
-                <p className="text-slate-500 text-[11px] leading-relaxed">
-                  İndirme motorumuzu kendi yazılımlarınıza veya sunucunuza entegre etmek için aşağıdaki API anahtarını kullanabilirsiniz. 
-                  Lütfen anahtarınızı kimseyle paylaşmayınız.
-                </p>
-              </div>
 
-              {/* API KEY DISPLAY CARD */}
-              <div className="bg-slate-950 p-5 rounded-2xl border border-slate-900/60">
-                <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2">API KEY (X-API-KEY)</label>
-                <div className="flex items-center space-x-2">
-                  <input
-                    type="text"
-                    readOnly
-                    value={user.apiKey}
-                    className="flex-1 bg-slate-900 border border-slate-800/80 rounded-xl px-4 py-2.5 text-xs text-rose-400 font-mono tracking-wide focus:outline-none"
-                  />
-                  <button
-                    onClick={() => copyToClipboard(user.apiKey)}
-                    className="p-2.5 bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-300 hover:text-white rounded-xl transition-colors cursor-pointer"
-                    title="Kopyala"
-                  >
-                    <Copy className="h-4 w-4" />
-                  </button>
-                  <button
-                    onClick={handleRegenerateApiKey}
-                    disabled={loading}
-                    className="p-2.5 bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-300 hover:text-white rounded-xl transition-colors disabled:opacity-40 cursor-pointer"
-                    title="Anahtarı Yenile"
-                  >
-                    <RefreshCw className="h-4 w-4" />
-                  </button>
-                </div>
-              </div>
-
-              {/* API usage limits block */}
-              <div className="bg-slate-950 p-5 rounded-2xl border border-slate-900/60">
-                <div className="flex justify-between items-center mb-4">
-                  <span className="font-bold text-slate-300">Günlük İstek Sınırı</span>
-                  <span className="font-mono text-[10px] bg-rose-500/10 text-rose-400 px-2.5 py-0.5 rounded-lg border border-rose-500/20 font-bold uppercase">
-                    {user.premiumStatus === "free" ? "FREE" : user.premiumStatus === "premium" ? "PREMIUM" : "VIP"}
-                  </span>
-                </div>
-
-                <div className="space-y-2">
-                  <div className="w-full bg-slate-900 h-2 rounded-full overflow-hidden">
-                    <div 
-                      className="bg-rose-500 h-full" 
-                      style={{ width: user.premiumStatus === "free" ? "20%" : user.premiumStatus === "premium" ? "1%" : "0.1%" }}
-                    ></div>
-                  </div>
-                  <div className="flex justify-between text-[11px] text-slate-500">
-                    <span>Mevcut Kullanım: {user.premiumStatus === "free" ? "2 / 10" : user.premiumStatus === "premium" ? "12 / 2000" : "45 / 10000"} istek</span>
-                    <span>Kalan: {user.premiumStatus === "free" ? "8" : user.premiumStatus === "premium" ? "1988" : "9955"}</span>
-                  </div>
-                </div>
-
-                <div className="mt-5 text-[10px] text-slate-500 leading-normal">
-                  * API çağrılarınızda her başarılı sorgu 1 istek sayılır. Günlük limit her gece 00:00'da sıfırlanır. Limiti artırmak veya sınırsız VIP anahtarlara ulaşmak için <span className="text-rose-400 font-bold">Premium plana</span> geçiş yapın.
-                </div>
-              </div>
-            </div>
-          )}
 
           {/* SECURITY TAB */}
           {activeTab === "security" && (

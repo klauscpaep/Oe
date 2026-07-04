@@ -19,7 +19,12 @@ import {
   RefreshCw,
   PlusCircle,
   FileCode,
-  Sparkles
+  Sparkles,
+  MessageSquare,
+  LifeBuoy,
+  Send,
+  ArrowLeft,
+  Check
 } from "lucide-react";
 import { User, Download as DownloadType, Announcement, Blog, Category, SystemStats } from "../types";
 import { api } from "../api";
@@ -30,7 +35,7 @@ interface AdminPanelProps {
 }
 
 export default function AdminPanel({ currentUser, onRefreshData }: AdminPanelProps) {
-  const [activeTab, setActiveTab] = useState<"dashboard" | "users" | "announcements" | "blog" | "settings" | "cache">("dashboard");
+  const [activeTab, setActiveTab] = useState<"dashboard" | "users" | "announcements" | "blog" | "settings" | "cache" | "tickets">("dashboard");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
@@ -43,6 +48,18 @@ export default function AdminPanel({ currentUser, onRefreshData }: AdminPanelPro
   const [logs, setLogs] = useState<any[]>([]);
   const [downloads, setDownloads] = useState<DownloadType[]>([]);
   const [userList, setUserList] = useState<User[]>([]);
+  const [annList, setAnnList] = useState<any[]>([]);
+  const [ticketsList, setTicketsList] = useState<any[]>([]);
+
+  // Deletion confirmation states
+  const [deletingAnnId, setDeletingAnnId] = useState<string | null>(null);
+  const [deletingTicketId, setDeletingTicketId] = useState<string | null>(null);
+
+  // Ticket Management
+  const [activeAdminTicket, setActiveAdminTicket] = useState<any | null>(null);
+  const [adminReplyMessage, setAdminReplyMessage] = useState("");
+  const [ticketFilter, setTicketFilter] = useState<"all" | "open" | "answered" | "closed">("all");
+  const [ticketSearchQuery, setTicketSearchQuery] = useState("");
 
   // Forms / Management state
   const [searchQuery, setSearchQuery] = useState("");
@@ -88,6 +105,18 @@ export default function AdminPanel({ currentUser, onRefreshData }: AdminPanelPro
       const uRes = await api.admin.getUsers();
       if (uRes.success) {
         setUserList(uRes.users);
+      }
+
+      // Fetch announcements as well
+      const annRes = await api.admin.getAnnouncements();
+      if (annRes.success) {
+        setAnnList(annRes.announcements);
+      }
+
+      // Fetch tickets as well
+      const ticketsRes = await api.admin.getTickets();
+      if (ticketsRes.success) {
+        setTicketsList(ticketsRes.tickets);
       }
 
       // Fetch settings to fill inputs
@@ -159,6 +188,102 @@ export default function AdminPanel({ currentUser, onRefreshData }: AdminPanelPro
     }
   };
 
+  const ANNOUNCEMENT_TEMPLATES = [
+    {
+      id: "system-update",
+      name: "🚀 Sistem Güncellemesi",
+      title: "Sistem Güncellemesi v2.4 Yayında!",
+      content: `<h3>🎉 Yenilikler ve Geliştirmeler</h3>
+<p>Sizlere daha iyi bir hizmet sunabilmek adına altyapımızı güncelledik:</p>
+<ul>
+  <li><strong>Yeni Platformlar:</strong> TikTok, Instagram Reels ve X (Twitter) video indirme motorları optimize edildi.</li>
+  <li><strong>Dönüştürme Hızı:</strong> Video işleme sunucuları güçlendirilerek indirme hız limitleri %40 oranında artırıldı.</li>
+  <li><strong>Hata Düzeltmeleri:</strong> Bazı YouTube oynatma listelerinin indirilmesi sırasında yaşanan bağlantı kopma sorunları giderildi.</li>
+</ul>
+<p>Herhangi bir sorun yaşarsanız destek talepleri üzerinden bizimle her zaman iletişime geçebilirsiniz.</p>`,
+      type: "normal" as const,
+      isPinned: true
+    },
+    {
+      id: "maintenance",
+      name: "🛠️ Planlı Bakım Çalışması",
+      title: "Planlı Sunucu Bakım Çalışması Hakkında",
+      content: `<div style="background: rgba(244, 63, 94, 0.08); border: 1px solid rgba(244, 63, 94, 0.15); padding: 12px 16px; border-radius: 12px; color: #f43f5e; margin-bottom: 12px;">
+  <strong>⚠️ ÖNEMLİ KESİNTİ BİLGİSİ</strong><br/>
+  Daha kararlı ve daha hızlı bir indirme altyapısı sunabilmek adına sunucularımızda donanımsal yükseltme çalışmaları gerçekleştirilecektir.
+</div>
+<p><strong>Çalışma Zamanı:</strong> Bu gece 04:00 ile 05:00 saatleri arasında (Yaklaşık 1 saat).</p>
+<p>Çalışma süresince video dönüştürme ve indirme işlemlerinde kısa süreli kesintiler veya gecikmeler yaşanabilecektir. Gösterdiğiniz anlayış için teşekkür ederiz.</p>`,
+      type: "banner" as const,
+      isPinned: false
+    },
+    {
+      id: "discount",
+      name: "🔥 Premium / VIP Kampanyası",
+      title: "Sınırlı Süreli %50 Premium İndirimi Başladı!",
+      content: `<p>VidiDown ayrıcalıklarını en uygun fiyatlarla deneyimlemenin tam zamanı! Bugüne özel tüm <strong>Premium Bireysel</strong> ve <strong>VIP Kurumsal</strong> üyelik paketlerimizde net <strong>%50 indirim</strong> fırsatı tanımlanmıştır.</p>
+<ul>
+  <li>Sınırsız ve 8K çözünürlüğe kadar yüksek kaliteli video indirme</li>
+  <li>100 MB/s indirme hızı (Herhangi bir hız limiti olmadan)</li>
+  <li>Tamamen reklamsız ve kesintisiz indirme deneyimi</li>
+  <li>7/24 Öncelikli Canlı Destek hizmeti</li>
+</ul>
+<p>💡 <em>İndirim sepetinize otomatik olarak yansıtılmıştır. Profil sayfanızdan üyelik planınızı hemen yükselterek bu özel fırsatı kaçırmayın!</em></p>`,
+      type: "popup" as const,
+      isPinned: true
+    },
+    {
+      id: "security-warning",
+      name: "🔐 Güvenlik Uyarısı",
+      title: "Önemli: Hesap Güvenliğiniz Hakkında Bilgilendirme",
+      content: `<p>Değerli kullanıcılarımız,</p>
+<p>Hesabınızın güvenliğini korumak amacıyla lütfen aşağıdaki güvenlik adımlarına hassasiyet gösteriniz:</p>
+<ol>
+  <li>VidiDown yetkilileri de dahil olmak üzere, şifrenizi hiçbir zaman üçüncü şahıslarla veya kendisini yetkili olarak tanıtan kişilerle paylaşmayın.</li>
+  <li>Hesap güvenliğinizi artırmak için <strong>Profil > Hesap Güvenliği</strong> sekmesinden <strong>Google Authenticator (2FA)</strong> iki adımlı doğrulama sistemini etkinleştirin.</li>
+  <li>Diğer platformlarda kullanmadığınız, güçlü ve özgün bir şifre belirleyin.</li>
+</ol>
+<p>Güvenli günler dileriz.</p>`,
+      type: "normal" as const,
+      isPinned: false
+    },
+    {
+      id: "new-features",
+      name: "🌟 Yeni Özellik: Filigransız TikTok & Reels",
+      title: "TikTok ve Instagram Reels Videolarını Filigransız İndirin!",
+      content: `<p>Beklenen özellik sonunda geldi! Artık TikTok ve Instagram Reels videolarını orijinal kalitesinde, <strong>filigransız (no-watermark)</strong> ve tamamen temiz bir şekilde tek tıkla indirebilirsiniz.</p>
+<p>Yapmanız gereken tek şey video bağlantısını ana sayfadaki arama alanına yapıştırmak ve indirme seçeneklerinden "Filigransız MP4" formatını seçmek.</p>
+<p>Keyifli indirmeler dileriz!</p>`,
+      type: "normal" as const,
+      isPinned: true
+    }
+  ];
+
+  const handleApplyTemplate = (tpl: typeof ANNOUNCEMENT_TEMPLATES[0]) => {
+    setAnnTitle(tpl.title);
+    setAnnContent(tpl.content);
+    setAnnType(tpl.type);
+    setAnnPinned(tpl.isPinned);
+    setSuccess(`"${tpl.name}" şablonu başarıyla dolduruldu!`);
+    setTimeout(() => setSuccess(""), 3000);
+  };
+
+  const handleDeleteAnnouncement = async (id: string) => {
+    if (!window.confirm("Bu duyuruyu silmek istediğinizden emin misiniz?")) return;
+    try {
+      const res = await api.admin.deleteAnnouncement(id);
+      if (res.success) {
+        setSuccess("Duyuru başarıyla silindi.");
+        loadDashboardData();
+        if (onRefreshData) onRefreshData();
+        setTimeout(() => setSuccess(""), 3000);
+      }
+    } catch (err: any) {
+      setError(err.message || "Duyuru silinemedi.");
+      setTimeout(() => setError(""), 3000);
+    }
+  };
+
   const handleCreateAnnouncement = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!annTitle || !annContent) {
@@ -185,6 +310,67 @@ export default function AdminPanel({ currentUser, onRefreshData }: AdminPanelPro
       }
     } catch (err: any) {
       setError(err.message || "Duyuru oluşturulamadı.");
+    }
+  };
+
+  const handleAdminReplyTicket = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!adminReplyMessage || !activeAdminTicket) return;
+
+    try {
+      setLoading(true);
+      const res = await api.replyTicket(activeAdminTicket.id, adminReplyMessage);
+      if (res.success) {
+        setSuccess("Cevabınız başarıyla gönderildi ve bilet 'Yanıtlandı' olarak işaretlendi.");
+        setAdminReplyMessage("");
+        setActiveAdminTicket(res.ticket);
+        loadDashboardData();
+        setTimeout(() => setSuccess(""), 3000);
+      }
+    } catch (err: any) {
+      setError(err.message || "Cevap gönderilemedi.");
+      setTimeout(() => setError(""), 3000);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleUpdateTicketStatus = async (id: string, status: "open" | "answered" | "closed") => {
+    try {
+      const res = await api.admin.updateTicketStatus(id, status);
+      if (res.success) {
+        setSuccess(`Bilet durumu "${status === "closed" ? "Sonlandırıldı" : status === "answered" ? "Yanıtlandı" : "Açık"}" olarak güncellendi.`);
+        
+        // Update ticketsList immediately in state
+        setTicketsList(prev => prev.map(t => t.id === id ? res.ticket : t));
+        
+        if (activeAdminTicket && activeAdminTicket.id === id) {
+          setActiveAdminTicket(res.ticket);
+        }
+        loadDashboardData();
+        setTimeout(() => setSuccess(""), 3000);
+      }
+    } catch (err: any) {
+      setError(err.message || "Bilet durumu güncellenemedi.");
+      setTimeout(() => setError(""), 3000);
+    }
+  };
+
+  const handleDeleteTicket = async (id: string) => {
+    if (!window.confirm("Bu destek biletini silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.")) return;
+    try {
+      const res = await api.admin.deleteTicket(id);
+      if (res.success) {
+        setSuccess("Destek bileti kalıcı olarak silindi.");
+        if (activeAdminTicket && activeAdminTicket.id === id) {
+          setActiveAdminTicket(null);
+        }
+        loadDashboardData();
+        setTimeout(() => setSuccess(""), 3000);
+      }
+    } catch (err: any) {
+      setError(err.message || "Bilet silinemedi.");
+      setTimeout(() => setError(""), 3000);
     }
   };
 
@@ -302,6 +488,18 @@ export default function AdminPanel({ currentUser, onRefreshData }: AdminPanelPro
           >
             <BookOpen className="h-4 w-4" />
             <span>Blog Yönetimi</span>
+          </button>
+          <button
+            onClick={() => {
+              setActiveTab("tickets");
+              setActiveAdminTicket(null);
+            }}
+            className={`w-full flex items-center space-x-2 px-4 py-3 rounded-xl text-xs font-semibold uppercase tracking-wider transition-all ${
+              activeTab === "tickets" ? "bg-teal-500/10 text-teal-400 border border-teal-500/25" : "text-slate-400 hover:text-white"
+            }`}
+          >
+            <LifeBuoy className="h-4 w-4" />
+            <span>Destek Talepleri</span>
           </button>
           <button
             onClick={() => setActiveTab("settings")}
@@ -636,68 +834,208 @@ export default function AdminPanel({ currentUser, onRefreshData }: AdminPanelPro
 
           {/* ANNOUNCEMENTS TAB */}
           {activeTab === "announcements" && (
-            <div className="space-y-6">
-              <h3 className="text-sm font-semibold tracking-wider uppercase text-slate-400 mb-4 flex items-center space-x-2">
-                <Megaphone className="h-4 w-4 text-teal-400" />
-                <span>Yeni Duyuru Yayınla</span>
-              </h3>
-
-              <form onSubmit={handleCreateAnnouncement} className="space-y-4">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2">Başlık</label>
-                    <input
-                      type="text"
-                      placeholder="Duyuru başlığı..."
-                      value={annTitle}
-                      onChange={(e) => setAnnTitle(e.target.value)}
-                      className="w-full bg-slate-950 border border-slate-900 rounded-xl px-4 py-2.5 text-xs text-slate-100 focus:outline-none"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2">Gösterim Biçimi</label>
-                    <select
-                      value={annType}
-                      onChange={(e: any) => setAnnType(e.target.value)}
-                      className="w-full bg-slate-950 border border-slate-900 rounded-xl px-4 py-2.5 text-xs text-slate-300 focus:outline-none"
+            <div className="space-y-8">
+              {/* Ready Templates / Hazır Şablonlar */}
+              <div className="bg-slate-950 p-6 rounded-2xl border border-slate-900">
+                <h4 className="text-xs font-bold text-teal-400 uppercase tracking-wider mb-4 flex items-center space-x-1.5">
+                  <Sparkles className="h-4 w-4 text-teal-400" />
+                  <span>Hazır Duyuru Şablonları (Tek Tıkla Doldur)</span>
+                </h4>
+                <p className="text-slate-400 text-xs mb-4">
+                  Sitenizde sık sık paylaşacağınız genel durum bildirimlerini hazır şablonları kullanarak saniyeler içinde oluşturabilirsiniz.
+                </p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                  {ANNOUNCEMENT_TEMPLATES.map((tpl) => (
+                    <button
+                      key={tpl.id}
+                      type="button"
+                      onClick={() => handleApplyTemplate(tpl)}
+                      className="text-left p-4 rounded-xl bg-slate-900 hover:bg-slate-900/60 border border-slate-800 hover:border-teal-500/40 transition-all cursor-pointer group flex flex-col justify-between"
                     >
-                      <option value="normal">Normal Akış (Duyurular listesi)</option>
-                      <option value="banner">Banner (Ana sayfa tepesinde)</option>
-                      <option value="popup">Popup (Girişte ekranda beliren)</option>
-                    </select>
-                  </div>
+                      <div>
+                        <span className="text-xs font-bold text-slate-200 group-hover:text-teal-400 transition-colors">
+                          {tpl.name}
+                        </span>
+                        <p className="text-[11px] text-slate-500 mt-1 line-clamp-2">
+                          {tpl.title}
+                        </p>
+                      </div>
+                      <span className="text-[9px] uppercase font-semibold text-slate-600 group-hover:text-teal-500/60 mt-3 transition-colors">
+                        Şablonu Seç &raquo;
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Grid: Create announcement form & Active announcements list */}
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                
+                {/* Create Form */}
+                <div className="lg:col-span-5 bg-slate-950 p-6 rounded-2xl border border-slate-900 space-y-4 h-fit">
+                  <h3 className="text-xs font-bold text-slate-300 uppercase tracking-wider mb-4 flex items-center space-x-2 border-b border-slate-900 pb-3">
+                    <Megaphone className="h-4 w-4 text-teal-400" />
+                    <span>Yeni Duyuru Oluştur</span>
+                  </h3>
+
+                  <form onSubmit={handleCreateAnnouncement} className="space-y-4">
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2">Başlık</label>
+                      <input
+                        type="text"
+                        placeholder="Duyuru başlığı..."
+                        value={annTitle}
+                        onChange={(e) => setAnnTitle(e.target.value)}
+                        className="w-full bg-slate-900 border border-slate-800 rounded-xl px-4 py-2.5 text-xs text-slate-100 focus:outline-none focus:border-teal-500"
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2">Gösterim Biçimi</label>
+                      <select
+                        value={annType}
+                        onChange={(e: any) => setAnnType(e.target.value)}
+                        className="w-full bg-slate-900 border border-slate-800 rounded-xl px-4 py-2.5 text-xs text-slate-300 focus:outline-none focus:border-teal-500"
+                      >
+                        <option value="normal">Normal Akış (Sistem Duyuruları - Sağ Üstteki Zil Simgesi)</option>
+                        <option value="banner">Banner (Ana sayfa tepesinde şerit)</option>
+                        <option value="popup">Popup (Girişte ekranda beliren modal)</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2">Duyuru İçeriği (Saf Metin veya HTML)</label>
+                      <textarea
+                        rows={6}
+                        placeholder="HTML veya düz metin formatında duyuru içeriğinizi girin..."
+                        value={annContent}
+                        onChange={(e) => setAnnContent(e.target.value)}
+                        className="w-full bg-slate-900 border border-slate-800 rounded-xl px-4 py-2.5 text-xs text-slate-100 focus:outline-none resize-none focus:border-teal-500 font-mono"
+                      />
+                    </div>
+
+                    <div className="flex items-center space-x-2">
+                      <input
+                        type="checkbox"
+                        id="annPinned"
+                        checked={annPinned}
+                        onChange={(e) => setAnnPinned(e.target.checked)}
+                        className="bg-slate-900 border border-slate-800 rounded focus:ring-0 text-teal-400 h-4 w-4"
+                      />
+                      <label htmlFor="annPinned" className="text-xs text-slate-400 select-none">Duyuruyu en üste sabitle (isPinned)</label>
+                    </div>
+
+                    <button
+                      type="submit"
+                      className="w-full bg-teal-500 hover:bg-teal-600 text-slate-950 font-bold py-2.5 rounded-xl text-xs flex items-center justify-center space-x-1.5 transition-all shadow-md shadow-teal-500/10 cursor-pointer"
+                    >
+                      <PlusCircle className="h-4 w-4" />
+                      <span>Duyuruyu Yayınla</span>
+                    </button>
+                  </form>
                 </div>
 
-                <div>
-                  <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2">Duyuru İçeriği</label>
-                  <textarea
-                    rows={4}
-                    placeholder="HTML veya saf metin formatında duyuru içeriğinizi girin..."
-                    value={annContent}
-                    onChange={(e) => setAnnContent(e.target.value)}
-                    className="w-full bg-slate-950 border border-slate-900 rounded-xl px-4 py-2.5 text-xs text-slate-100 focus:outline-none resize-none"
-                  />
+                {/* Published List */}
+                <div className="lg:col-span-7 bg-slate-950 p-6 rounded-2xl border border-slate-900 flex flex-col h-full">
+                  <h3 className="text-xs font-bold text-slate-300 uppercase tracking-wider mb-4 flex items-center space-x-2 border-b border-slate-900 pb-3">
+                    <Megaphone className="h-4 w-4 text-teal-400" />
+                    <span>Yayınlanan Duyurular ({annList.length})</span>
+                  </h3>
+
+                  {annList.length === 0 ? (
+                    <div className="flex-1 flex flex-col items-center justify-center py-12 text-center">
+                      <Megaphone className="h-8 w-8 text-slate-700 mb-2 stroke-[1.5]" />
+                      <p className="text-xs text-slate-500">Henüz yayınlanmış bir duyuru bulunmuyor.</p>
+                      <p className="text-[10px] text-slate-600 mt-1">Soldaki şablonları kullanarak veya form ile hemen bir duyuru ekleyin.</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-3 max-h-[500px] overflow-y-auto pr-2">
+                      {annList.map((ann: any) => (
+                        <div
+                          key={ann.id}
+                          className="p-4 rounded-xl bg-slate-900 border border-slate-800/80 flex items-start justify-between gap-4"
+                        >
+                          <div className="space-y-1">
+                            <div className="flex items-center space-x-2">
+                              <span className="font-bold text-slate-200 text-xs">{ann.title}</span>
+                              {ann.isPinned && (
+                                <span className="text-[9px] bg-amber-500/10 text-amber-400 border border-amber-500/20 px-1.5 py-0.5 rounded font-bold uppercase">Sabit</span>
+                              )}
+                              <span className={`text-[9px] border px-1.5 py-0.5 rounded font-bold uppercase ${
+                                ann.type === "popup"
+                                  ? "bg-rose-500/10 text-rose-400 border-rose-500/20"
+                                  : ann.type === "banner"
+                                  ? "bg-sky-500/10 text-sky-400 border-sky-500/20"
+                                  : "bg-teal-500/10 text-teal-400 border-teal-500/20"
+                              }`}>
+                                {ann.type === "popup" ? "Popup" : ann.type === "banner" ? "Banner" : "Duyuru"}
+                              </span>
+                            </div>
+                            <div 
+                              className="text-slate-400 text-[11px] leading-relaxed line-clamp-3 announcement-content"
+                              dangerouslySetInnerHTML={{ __html: ann.content }}
+                            />
+                            <div className="text-[9px] text-slate-500 mt-2">
+                              Oluşturulma: {new Date(ann.createdAt).toLocaleString("tr-TR")}
+                            </div>
+                          </div>
+
+                          {deletingAnnId === ann.id ? (
+                            <div className="flex items-center space-x-1 flex-shrink-0">
+                              <button
+                                type="button"
+                                onClick={async () => {
+                                  try {
+                                    const res = await api.admin.deleteAnnouncement(ann.id);
+                                    if (res.success) {
+                                      setSuccess("Duyuru başarıyla silindi.");
+                                      // Optimistic update
+                                      setAnnList(prev => prev.filter(item => item.id !== ann.id));
+                                      loadDashboardData();
+                                      if (onRefreshData) onRefreshData();
+                                      setTimeout(() => setSuccess(""), 3000);
+                                    }
+                                  } catch (err: any) {
+                                    setError(err.message || "Duyuru silinemedi.");
+                                    setTimeout(() => setError(""), 3000);
+                                  } finally {
+                                    setDeletingAnnId(null);
+                                  }
+                                }}
+                                className="px-2 py-1 bg-rose-600 hover:bg-rose-700 text-white text-[10px] font-bold rounded-lg transition-all cursor-pointer"
+                              >
+                                Evet, Sil
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setDeletingAnnId(null)}
+                                className="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 text-[10px] font-bold rounded-lg transition-all cursor-pointer"
+                              >
+                                İptal
+                              </button>
+                            </div>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setDeletingAnnId(ann.id);
+                                setTimeout(() => {
+                                  setDeletingAnnId(prev => prev === ann.id ? null : prev);
+                                }, 5000); // revert back after 5s
+                              }}
+                              className="p-1.5 bg-rose-500/10 hover:bg-rose-500 text-rose-400 hover:text-slate-950 rounded-lg border border-rose-500/20 hover:border-transparent transition-all cursor-pointer flex-shrink-0"
+                              title="Duyuruyu Sil"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
 
-                <div className="flex items-center space-x-2">
-                  <input
-                    type="checkbox"
-                    id="annPinned"
-                    checked={annPinned}
-                    onChange={(e) => setAnnPinned(e.target.checked)}
-                    className="bg-slate-950 border border-slate-900 rounded focus:ring-0 text-teal-400 h-4 w-4"
-                  />
-                  <label htmlFor="annPinned" className="text-xs text-slate-400">Duyuruyu en üste sabitle (isPinned)</label>
-                </div>
-
-                <button
-                  type="submit"
-                  className="bg-teal-500 hover:bg-teal-600 text-slate-950 font-bold px-5 py-2.5 rounded-xl text-xs flex items-center space-x-1.5 transition-all shadow-md shadow-teal-500/10 cursor-pointer"
-                >
-                  <PlusCircle className="h-4 w-4" />
-                  <span>Duyuruyu Yayınla</span>
-                </button>
-              </form>
+              </div>
             </div>
           )}
 
@@ -890,6 +1228,282 @@ export default function AdminPanel({ currentUser, onRefreshData }: AdminPanelPro
                   <span>Ayarları Kaydet</span>
                 </button>
               </form>
+            </div>
+          )}
+
+          {/* TICKETS TAB */}
+          {activeTab === "tickets" && (
+            <div className="space-y-6">
+              <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 border-b border-slate-900 pb-5">
+                <div>
+                  <h3 className="text-sm font-semibold tracking-wider uppercase text-slate-400 flex items-center space-x-2">
+                    <LifeBuoy className="h-4 w-4 text-teal-400" />
+                    <span>Kullanıcı Destek Talepleri</span>
+                  </h3>
+                  <p className="text-slate-500 text-[11px] mt-1">
+                    Kullanıcılar tarafından açılan teknik destek ve yardım taleplerini buradan inceleyip yanıtlayabilirsiniz.
+                  </p>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2">
+                  {(["all", "open", "answered", "closed"] as const).map((filter) => {
+                    const count = ticketsList.filter(t => filter === "all" ? true : t.status === filter).length;
+                    return (
+                      <button
+                        key={filter}
+                        type="button"
+                        onClick={() => setTicketFilter(filter)}
+                        className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider border transition-all cursor-pointer ${
+                          ticketFilter === filter
+                            ? "bg-teal-500/10 text-teal-400 border-teal-500/25"
+                            : "bg-slate-950/40 text-slate-400 border-slate-900 hover:text-slate-200"
+                        }`}
+                      >
+                        {filter === "all" ? "Tümü" : filter === "open" ? "Açık" : filter === "answered" ? "Yanıtlandı" : "Kapatıldı"}
+                        <span className="ml-1.5 font-mono text-[9px] opacity-60">({count})</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Ticket Search Bar */}
+              <div className="relative">
+                <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
+                <input
+                  type="text"
+                  placeholder="Bilet başlığı, mesajı veya bilet ID ile arayın..."
+                  value={ticketSearchQuery}
+                  onChange={(e) => setTicketSearchQuery(e.target.value)}
+                  className="w-full bg-slate-950 border border-slate-900 rounded-xl pl-10 pr-4 py-2.5 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-teal-500 transition-colors"
+                />
+              </div>
+
+              {/* Grid: Tickets List & Active Chat */}
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+                
+                {/* Tickets List Column */}
+                <div className={`lg:col-span-5 space-y-3 ${activeAdminTicket ? "hidden lg:block" : "block"}`}>
+                  <div className="max-h-[550px] overflow-y-auto space-y-2 pr-2">
+                    {(() => {
+                      const filteredTickets = ticketsList.filter(t => {
+                        const matchesFilter = ticketFilter === "all" || t.status === ticketFilter;
+                        const lowerQuery = ticketSearchQuery.toLowerCase();
+                        const matchesSearch = t.subject.toLowerCase().includes(lowerQuery) || 
+                          t.message.toLowerCase().includes(lowerQuery) || 
+                          (t.id && t.id.toLowerCase().includes(lowerQuery));
+                        return matchesFilter && matchesSearch;
+                      });
+
+                      if (filteredTickets.length === 0) {
+                        return (
+                          <div className="text-center py-12 bg-slate-950/40 rounded-2xl border border-slate-900">
+                            <MessageSquare className="h-8 w-8 text-slate-700 mx-auto mb-2" />
+                            <p className="text-xs text-slate-500">Kriterlere uygun destek talebi bulunamadı.</p>
+                          </div>
+                        );
+                      }
+
+                      return filteredTickets.map((ticket) => {
+                        const lastReply = ticket.replies && ticket.replies[ticket.replies.length - 1];
+                        const isSelected = activeAdminTicket && activeAdminTicket.id === ticket.id;
+
+                        return (
+                          <button
+                            key={ticket.id}
+                            type="button"
+                            onClick={() => {
+                              setActiveAdminTicket(ticket);
+                              setAdminReplyMessage("");
+                            }}
+                            className={`w-full p-4 rounded-xl border transition-all duration-300 cursor-pointer group text-left block ${
+                              isSelected
+                                ? "bg-teal-500/10 border-teal-500/25 text-teal-400"
+                                : "bg-slate-950 hover:bg-slate-900 border-slate-900 hover:border-slate-800"
+                            }`}
+                          >
+                            <div className="flex items-start justify-between gap-3 mb-2">
+                              <span className="font-bold text-slate-200 text-xs truncate group-hover:text-teal-400 transition-colors max-w-[150px]">
+                                {ticket.subject}
+                              </span>
+                              <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider border shrink-0 ${
+                                ticket.status === "open"
+                                  ? "bg-amber-500/10 text-amber-400 border-amber-500/20"
+                                  : ticket.status === "answered"
+                                    ? "bg-teal-500/10 text-teal-400 border-teal-500/20"
+                                    : "bg-slate-800 text-slate-400 border-slate-700"
+                              }`}>
+                                {ticket.status === "open" ? "Açık" : ticket.status === "answered" ? "Cevaplandı" : "Kapalı"}
+                              </span>
+                            </div>
+
+                            <p className="text-slate-400 text-[11px] line-clamp-2 leading-relaxed">
+                              {lastReply ? `Son Yanıt: ${lastReply.message}` : ticket.message}
+                            </p>
+
+                            <div className="flex items-center justify-between text-[10px] font-mono text-slate-500 mt-3 pt-2 border-t border-slate-900">
+                              <span>Bilet ID: {ticket.id}</span>
+                              <span>{new Date(ticket.createdAt).toLocaleDateString("tr-TR")}</span>
+                            </div>
+                          </button>
+                        );
+                      });
+                    })()}
+                  </div>
+                </div>
+
+                {/* Ticket Detail / Reply Column */}
+                <div className={`lg:col-span-7 ${activeAdminTicket ? "block" : "hidden lg:block"}`}>
+                  {activeAdminTicket ? (
+                    <div className="bg-slate-950 border border-slate-900 rounded-2xl overflow-hidden flex flex-col h-[550px]">
+                      
+                      {/* Detail Header */}
+                      <div className="p-4 bg-slate-900/60 border-b border-slate-900 flex items-center justify-between">
+                        <div className="flex items-center space-x-3 min-w-0">
+                          <button
+                            type="button"
+                            onClick={() => setActiveAdminTicket(null)}
+                            className="p-1.5 hover:bg-slate-900 text-slate-400 hover:text-white rounded-lg transition-colors lg:hidden"
+                          >
+                            <ArrowLeft className="h-4 w-4" />
+                          </button>
+                          <div className="min-w-0">
+                            <h4 className="text-xs font-bold text-slate-200 line-clamp-1">{activeAdminTicket.subject}</h4>
+                            <div className="text-[10px] text-slate-500 font-mono mt-0.5">
+                              Oluşturan: User #{activeAdminTicket.userId}
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Status Controls */}
+                        <div className="flex items-center space-x-2 shrink-0">
+                          {activeAdminTicket.status !== "closed" ? (
+                            <button
+                              type="button"
+                              onClick={() => handleUpdateTicketStatus(activeAdminTicket.id, "closed")}
+                              className="px-3 py-1.5 bg-amber-500/10 hover:bg-amber-600 hover:text-slate-950 text-amber-400 border border-amber-500/20 hover:border-transparent rounded-xl text-[10px] font-bold transition-all cursor-pointer flex items-center space-x-1 animate-pulse hover:animate-none"
+                              title="Sohbeti Sonlandır (Kullanıcıya bildirim gider)"
+                            >
+                              <span>Sohbeti Sonlandır</span>
+                            </button>
+                          ) : (
+                            <div className="flex items-center space-x-1.5">
+                              <span className="px-2 py-1 bg-slate-800 text-slate-400 text-[9px] font-bold rounded-lg border border-slate-750">
+                                SOHBET SONLANDIRILDI
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => handleUpdateTicketStatus(activeAdminTicket.id, "open")}
+                                className="px-2 py-1 bg-teal-500/10 hover:bg-teal-500 hover:text-slate-950 text-teal-400 border border-teal-500/20 hover:border-transparent rounded-lg text-[9px] font-bold transition-all cursor-pointer"
+                              >
+                                Tekrar Aç
+                              </button>
+                            </div>
+                          )}
+
+                          {/* Quick dropdown for other statuses */}
+                          <select
+                            value={activeAdminTicket.status}
+                            onChange={(e: any) => handleUpdateTicketStatus(activeAdminTicket.id, e.target.value)}
+                            className="bg-slate-950 border border-slate-850 rounded-xl px-2.5 py-1.5 text-[10px] font-bold text-slate-400 focus:outline-none uppercase cursor-pointer hover:bg-slate-900 hover:text-slate-200 transition-colors"
+                          >
+                            <option value="open">Açık</option>
+                            <option value="answered">Yanıtlandı</option>
+                            <option value="closed">Kapalı</option>
+                          </select>
+
+                          {/* Delete Ticket Action */}
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteTicket(activeAdminTicket.id)}
+                            className="p-1.5 bg-rose-500/10 hover:bg-rose-600 text-rose-400 hover:text-white border border-rose-500/20 hover:border-transparent rounded-xl transition-all cursor-pointer"
+                            title="Destek Talebini Tamamen Sil"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Chat Messages */}
+                      <div className="flex-1 p-4 overflow-y-auto space-y-4 bg-slate-950/40">
+                        {/* User's Original Message */}
+                        <div className="flex items-start space-x-2.5 max-w-[85%]">
+                          <div className="w-8 h-8 rounded-full bg-slate-800 flex items-center justify-center font-mono font-bold text-xs shrink-0 text-slate-300">
+                            U
+                          </div>
+                          <div className="bg-slate-900 border border-slate-900/60 rounded-2xl p-3 text-slate-200">
+                            <div className="text-[9px] font-mono text-slate-500 font-bold mb-1">
+                              KULLANICI (BİLET SAHİBİ)
+                            </div>
+                            <p className="text-xs whitespace-pre-line leading-relaxed">{activeAdminTicket.message}</p>
+                            <div className="text-[9px] font-mono text-slate-500 mt-2 text-right">
+                              {new Date(activeAdminTicket.createdAt).toLocaleDateString("tr-TR")} {new Date(activeAdminTicket.createdAt).toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" })}
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Reply Thread */}
+                        {activeAdminTicket.replies && activeAdminTicket.replies.map((rep: any) => {
+                          const isAdminReply = rep.senderRole === "admin";
+                          return (
+                            <div
+                              key={rep.id}
+                              className={`flex items-start space-x-2.5 max-w-[85%] ${isAdminReply ? "ml-auto flex-row-reverse space-x-reverse" : ""}`}
+                            >
+                              <div className={`w-8 h-8 rounded-full flex items-center justify-center font-mono font-bold text-xs shrink-0 ${
+                                isAdminReply ? "bg-teal-500 text-slate-950" : "bg-slate-800 text-slate-300"
+                              }`}>
+                                {isAdminReply ? "Y" : "U"}
+                              </div>
+                              <div className={`rounded-2xl p-3 border ${
+                                isAdminReply 
+                                  ? "bg-teal-500/10 border-teal-500/20 text-teal-100" 
+                                  : "bg-slate-900 border-slate-900/60 text-slate-200"
+                              }`}>
+                                <div className="text-[9px] font-mono text-slate-500 font-bold mb-1">
+                                  {isAdminReply ? "YÖNETİCİ (DESTEK EKİBİ)" : "KULLANICI"}
+                                </div>
+                                <p className="text-xs whitespace-pre-line leading-relaxed">{rep.message}</p>
+                                <div className="text-[9px] font-mono text-slate-500 mt-2 text-right">
+                                  {new Date(rep.createdAt).toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" })}
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+
+                      {/* Reply Input Form */}
+                      <form onSubmit={handleAdminReplyTicket} className="p-3 bg-slate-900 border-t border-slate-900 flex items-center space-x-2.5">
+                        <input
+                          type="text"
+                          placeholder="Kullanıcıya yardımcı olmak için cevap yazın..."
+                          value={adminReplyMessage}
+                          onChange={(e) => setAdminReplyMessage(e.target.value)}
+                          className="flex-1 bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-xs text-slate-100 focus:outline-none focus:border-teal-500 transition-colors"
+                        />
+                        <button
+                          type="submit"
+                          disabled={loading || !adminReplyMessage}
+                          className="p-2.5 bg-teal-500 hover:bg-teal-600 disabled:opacity-40 text-slate-950 rounded-xl transition-all shadow-md shadow-teal-500/10 cursor-pointer"
+                        >
+                          <Send className="h-4 w-4" />
+                        </button>
+                      </form>
+
+                    </div>
+                  ) : (
+                    <div className="h-[550px] bg-slate-950/20 border border-dashed border-slate-900 rounded-2xl flex flex-col items-center justify-center text-center p-6">
+                      <MessageSquare className="h-10 w-10 text-slate-700 stroke-[1.5] mb-3" />
+                      <h4 className="text-slate-300 font-bold text-xs">Herhangi bir destek talebi seçilmedi</h4>
+                      <p className="text-slate-500 text-[11px] max-w-xs mt-1">
+                        Sol taraftaki listeden bir destek biletine tıklayarak yazışma geçmişini görüntüleyebilir ve kullanıcıya cevap yazabilirsiniz.
+                      </p>
+                    </div>
+                  )}
+                </div>
+
+              </div>
             </div>
           )}
 

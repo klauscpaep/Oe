@@ -273,7 +273,7 @@ export default function App() {
         <div className="bg-gradient-to-r from-rose-600 to-pink-600 py-2 px-4 text-center text-xs font-bold tracking-wide text-white relative z-50 shadow-md">
           <div className="max-w-7xl mx-auto flex items-center justify-center space-x-2">
             <Megaphone className="h-4 w-4 shrink-0 animate-bounce" />
-            <span>{announcements.find(a => a.type === "banner")?.content}</span>
+            <span dangerouslySetInnerHTML={{ __html: announcements.find(a => a.type === "banner")?.content || "" }} />
           </div>
         </div>
       )}
@@ -285,6 +285,7 @@ export default function App() {
         setView={setView} 
         onOpenAuth={handleOpenAuth} 
         onLogout={handleLogout} 
+        announcements={announcements}
       />
 
       {/* 3. Main Body */}
@@ -829,7 +830,10 @@ export default function App() {
                 <Megaphone className="h-5 w-5" />
               </div>
               <h3 className="text-base font-bold text-white mb-2">{activePopup.title}</h3>
-              <p className="text-slate-400 leading-relaxed mb-6">{activePopup.content}</p>
+              <div 
+                className="text-slate-400 leading-relaxed mb-6 text-left break-words max-h-60 overflow-y-auto pr-1 announcement-content"
+                dangerouslySetInnerHTML={{ __html: activePopup.content }}
+              />
               <button
                 type="button"
                 onClick={() => setActivePopup(null)}

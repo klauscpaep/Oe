@@ -88,6 +88,43 @@ export default function PremiumView({ user, onUpgradeSuccess, onOpenAuth }: Prem
     }
   ];
 
+  const [cardNameInput, setCardNameInput] = useState("");
+  const [cardNumInput, setCardNumInput] = useState("");
+  const [cardExpiryInput, setCardExpiryInput] = useState("");
+  const [cvvInput, setCvvInput] = useState("");
+  const [paymentError, setPaymentError] = useState("");
+
+  const handleCardNumberChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    let value = e.target.value.replace(/\D/g, "");
+    if (value.length > 16) value = value.slice(0, 16);
+    const formatted = value.replace(/(\d{4})(?=\d)/g, "$1 ");
+    setCardNumInput(formatted);
+  };
+
+  const handleCardExpiryChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    let value = e.target.value.replace(/\D/g, "");
+    if (value.length > 4) value = value.slice(0, 4);
+    if (value.length > 2) {
+      value = value.slice(0, 2) + "/" + value.slice(2);
+    }
+    setCardExpiryInput(value);
+  };
+
+  const handleCvvChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    let value = e.target.value.replace(/\D/g, "");
+    if (value.length > 4) value = value.slice(0, 4);
+    setCvvInput(value);
+  };
+
+  const getCardType = (number: string) => {
+    const cleaned = number.replace(/\D/g, "");
+    if (cleaned.startsWith("4")) return "Visa";
+    if (/^5[1-5]/.test(cleaned) || /^2[2-7]/.test(cleaned)) return "Mastercard";
+    if (/^9792/.test(cleaned) || /^65/.test(cleaned)) return "Troy";
+    if (cleaned.startsWith("34") || cleaned.startsWith("37")) return "Amex";
+    return "Kredi / Banka Kartı";
+  };
+
   const handleCheckoutInitiate = (plan: any) => {
     if (!user) {
       onOpenAuth();
@@ -97,14 +134,26 @@ export default function PremiumView({ user, onUpgradeSuccess, onOpenAuth }: Prem
       alert("Bu plana zaten sahipsiniz.");
       return;
     }
+    setCardNameInput("");
+    setCardNumInput("");
+    setCardExpiryInput("");
+    setCvvInput("");
+    setPaymentError("");
     setCheckoutPlan(plan);
   };
 
-  const handlePaymentConfirm = async () => {
+  const handlePaymentConfirm = async (e: React.FormEvent) => {
+    e.preventDefault();
     if (!checkoutPlan) return;
+    setPaymentError("");
     setLoading(checkoutPlan.id);
     try {
-      const res = await api.activatePremium(checkoutPlan.id);
+      const res = await api.activatePremium(checkoutPlan.id, {
+        cardName: cardNameInput,
+        cardNumber: cardNumInput,
+        cardExpiry: cardExpiryInput,
+        cvv: cvvInput
+      });
       if (res.success) {
         setSuccess(res.message);
         onUpgradeSuccess(res.premiumStatus);
@@ -114,7 +163,7 @@ export default function PremiumView({ user, onUpgradeSuccess, onOpenAuth }: Prem
         }, 3000);
       }
     } catch (err: any) {
-      alert(err.message || "Ödeme işlemi sırasında bir sorun oluştu.");
+      setPaymentError(err.message || "Ödeme işlemi sırasında bir sorun oluştu.");
     } finally {
       setLoading(null);
     }
@@ -222,39 +271,142 @@ export default function PremiumView({ user, onUpgradeSuccess, onOpenAuth }: Prem
       <AnimatePresence>
         {checkoutPlan && (
           <>
-            <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50" onClick={() => setCheckoutPlan(null)}></div>
+            <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 animate-fade-in" onClick={() => setCheckoutPlan(null)}></div>
             <motion.div
               initial={{ opacity: 0, scale: 0.95, y: 15 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 15 }}
-              className="fixed inset-x-4 top-1/2 -translate-y-1/2 max-w-md mx-auto bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-2xl z-50 text-xs"
+              className="fixed inset-x-4 top-1/2 -translate-y-1/2 max-w-md mx-auto bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-7 shadow-2xl z-50 text-xs overflow-y-auto max-h-[90vh]"
             >
               {/* Header */}
-              <div className="text-center mb-6">
-                <div className="inline-flex p-3 bg-rose-500/10 text-rose-500 rounded-2xl border border-rose-500/20 mb-3">
-                  <Shield className="h-5 w-5 animate-pulse" />
+              <div className="text-center mb-5">
+                <div className="inline-flex p-2.5 bg-rose-500/10 text-rose-500 rounded-2xl border border-rose-500/20 mb-2">
+                  <Shield className="h-4.5 w-4.5 animate-pulse" />
                 </div>
-                <h3 className="text-lg font-bold text-white">Güvenli Ödeme Ekranı (Secure Checkout)</h3>
-                <p className="text-slate-400 mt-1">Seçtiğiniz plan: <span className="text-rose-400 font-bold">{checkoutPlan.name}</span></p>
+                <h3 className="text-base font-bold text-white">Güvenli Kart Ödeme Ekranı</h3>
+                <p className="text-slate-400 mt-1">
+                  Seçilen Paket: <span className="text-rose-400 font-bold">{checkoutPlan.name}</span> (₺{checkoutPlan.price} / Aylık)
+                </p>
               </div>
 
               {success ? (
                 <div className="text-center py-6 space-y-3">
-                  <Check className="h-12 w-12 text-teal-400 mx-auto bg-teal-500/10 p-2.5 rounded-full border border-teal-500/20" />
+                  <Check className="h-12 w-12 text-teal-400 mx-auto bg-teal-500/10 p-2.5 rounded-full border border-teal-500/20 animate-bounce" />
                   <p className="text-sm font-bold text-white">Ödeme Başarılı!</p>
                   <p className="text-slate-400 leading-normal">{success}</p>
                 </div>
               ) : (
-                <div className="space-y-4">
-                  {/* Mock card info */}
-                  <div className="bg-slate-950 p-4 rounded-2xl border border-slate-850 space-y-3">
-                    <div className="flex justify-between font-bold text-slate-300">
-                      <span>Ödenecek Tutar</span>
-                      <span>₺{checkoutPlan.price} / Ay</span>
+                <form onSubmit={handlePaymentConfirm} className="space-y-4">
+                  {/* Visual Credit Card Preview */}
+                  <div className="relative w-full h-40 bg-gradient-to-br from-slate-800 to-slate-950 border border-slate-700/50 rounded-2xl p-4 text-white shadow-xl flex flex-col justify-between overflow-hidden">
+                    <div className="absolute top-0 right-0 w-32 h-32 bg-teal-500/5 rounded-full blur-3xl"></div>
+                    <div className="absolute bottom-0 left-0 w-24 h-24 bg-rose-500/5 rounded-full blur-2xl"></div>
+                    
+                    <div className="flex justify-between items-center relative z-10">
+                      {/* Chip */}
+                      <div className="w-9 h-6 bg-amber-400/20 border border-amber-400/30 rounded flex flex-col justify-center items-center overflow-hidden">
+                        <div className="grid grid-cols-3 gap-0.5 w-full h-full p-0.5">
+                          <div className="border border-amber-400/20 rounded-sm"></div>
+                          <div className="border border-amber-400/20 rounded-sm"></div>
+                          <div className="border border-amber-400/20 rounded-sm"></div>
+                          <div className="border border-amber-400/20 rounded-sm"></div>
+                          <div className="border border-amber-400/20 rounded-sm"></div>
+                          <div className="border border-amber-400/20 rounded-sm"></div>
+                        </div>
+                      </div>
+                      
+                      {/* Brand */}
+                      <span className="text-[10px] font-bold tracking-widest text-slate-400 uppercase italic">
+                        {getCardType(cardNumInput)}
+                      </span>
                     </div>
-                    <hr className="border-slate-900" />
-                    <p className="text-[10px] text-slate-500 leading-normal">
-                      * Bu bir demo ödeme arayüzüdür. "Ödemeyi Onayla" butonuna bastığınızda hesabınız sistem tarafından anında yükseltilecek ve kartınızdan herhangi bir çekim yapılmayacaktır.
+
+                    <div className="my-2 text-base font-mono tracking-[0.12em] text-center relative z-10 text-slate-100">
+                      {cardNumInput || "•••• •••• •••• ••••"}
+                    </div>
+
+                    <div className="flex justify-between items-end relative z-10 font-mono">
+                      <div className="max-w-[65%]">
+                        <span className="text-[7px] text-slate-500 block uppercase tracking-wider mb-0.5">Kart Sahibi</span>
+                        <span className="text-[9px] font-bold uppercase tracking-wider block truncate text-slate-200">
+                          {cardNameInput || "İSİM SOYİSİM"}
+                        </span>
+                      </div>
+                      <div className="text-right">
+                        <span className="text-[7px] text-slate-500 block uppercase tracking-wider mb-0.5">Son Kul.</span>
+                        <span className="text-[9px] font-bold block text-slate-200">{cardExpiryInput || "AA/YY"}</span>
+                      </div>
+                      <div className="text-right">
+                        <span className="text-[7px] text-slate-500 block uppercase tracking-wider mb-0.5">CVV</span>
+                        <span className="text-[9px] font-bold block text-slate-200">{cvvInput || "•••"}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {paymentError && (
+                    <div className="bg-rose-500/10 border border-rose-500/20 p-3 rounded-xl flex items-start space-x-2 text-rose-400 text-[11px] leading-normal">
+                      <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
+                      <span>{paymentError}</span>
+                    </div>
+                  )}
+
+                  {/* Inputs */}
+                  <div className="space-y-3">
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Kart Sahibi Adı</label>
+                      <input
+                        type="text"
+                        required
+                        value={cardNameInput}
+                        onChange={(e) => setCardNameInput(e.target.value)}
+                        placeholder="Örn. Ahmet Yılmaz"
+                        className="w-full bg-slate-950 border border-slate-850 rounded-xl px-3.5 py-2 text-xs text-slate-100 focus:outline-none focus:border-rose-500/50 transition-colors"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Kart Numarası</label>
+                      <input
+                        type="text"
+                        required
+                        value={cardNumInput}
+                        onChange={handleCardNumberChange}
+                        placeholder="0000 0000 0000 0000"
+                        className="w-full bg-slate-950 border border-slate-850 rounded-xl px-3.5 py-2 text-xs text-slate-100 focus:outline-none focus:border-rose-500/50 transition-colors font-mono"
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Son Kullanma (AA/YY)</label>
+                        <input
+                          type="text"
+                          required
+                          value={cardExpiryInput}
+                          onChange={handleCardExpiryChange}
+                          placeholder="12/28"
+                          className="w-full bg-slate-950 border border-slate-850 rounded-xl px-3.5 py-2 text-xs text-slate-100 focus:outline-none focus:border-rose-500/50 transition-colors font-mono"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Güvenlik Kodu (CVV)</label>
+                        <input
+                          type="text"
+                          required
+                          value={cvvInput}
+                          onChange={handleCvvChange}
+                          placeholder="000"
+                          className="w-full bg-slate-950 border border-slate-850 rounded-xl px-3.5 py-2 text-xs text-slate-100 focus:outline-none focus:border-rose-500/50 transition-colors font-mono"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Informative footer */}
+                  <div className="bg-slate-950/80 p-3 rounded-xl border border-slate-850 text-[10px] text-slate-400 space-y-1">
+                    <span className="font-bold text-teal-400 block">💡 Güvenli Ödeme ve Doğrulama</span>
+                    <p className="leading-relaxed">
+                      Sistemimiz Luhn algoritması kart kontrolünü destekler. Gerçek ödemeyi test etmek için geçerli bir test kartı numarası kullanabilirsiniz (örn. <code className="text-rose-400 bg-rose-500/5 px-1 py-0.5 rounded font-mono">4111 1111 1111 1111</code>).
                     </p>
                   </div>
 
@@ -262,20 +414,19 @@ export default function PremiumView({ user, onUpgradeSuccess, onOpenAuth }: Prem
                     <button
                       type="button"
                       onClick={() => setCheckoutPlan(null)}
-                      className="w-full bg-slate-950 border border-slate-800 hover:text-white text-slate-400 py-3 rounded-xl font-semibold transition-colors"
+                      className="w-full bg-slate-950 border border-slate-850 hover:text-white text-slate-400 py-2.5 rounded-xl font-semibold transition-colors cursor-pointer text-center"
                     >
-                      Vazgeç
+                      İptal Et
                     </button>
                     <button
-                      type="button"
-                      onClick={handlePaymentConfirm}
+                      type="submit"
                       disabled={loading !== null}
-                      className="w-full bg-rose-500 hover:bg-rose-600 disabled:opacity-50 text-white py-3 rounded-xl font-bold transition-all shadow-md shadow-rose-500/15"
+                      className="w-full bg-rose-500 hover:bg-rose-600 disabled:opacity-50 text-white py-2.5 rounded-xl font-bold transition-all shadow-md shadow-rose-500/15 cursor-pointer flex justify-center items-center"
                     >
-                      {loading ? "Onaylanıyor..." : "Ödemeyi Onayla"}
+                      {loading ? "Ödeniyor..." : `Ödemeyi Tamamla`}
                     </button>
                   </div>
-                </div>
+                </form>
               )}
             </motion.div>
           </>

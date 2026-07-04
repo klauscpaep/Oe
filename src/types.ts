@@ -4,7 +4,7 @@ export interface User {
   email: string;
   role: "user" | "admin";
   avatar: string;
-  apiKey: string;
+  apiKey?: string;
   premiumStatus: "free" | "premium" | "vip";
   twoFactorEnabled: boolean;
   createdAt: string;

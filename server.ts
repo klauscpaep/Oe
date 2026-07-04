@@ -284,33 +284,9 @@ app.post("/api/profile/delete", authenticateToken, (req: any, res) => {
   res.json({ success: true, message: "Hesabınız başarıyla silindi." });
 });
 
-// API Anahtarı Yenileme
+// API Anahtarı Sistemi Kaldırıldı
 app.post("/api/api-key/regenerate", authenticateToken, (req: any, res) => {
-  const db = dbInstance.getData();
-  const userIndex = db.users.findIndex(u => u.id === req.user.id);
-  if (userIndex === -1) return res.status(404).json({ error: "Kullanıcı bulunamadı." });
-
-  const newKey = "vidi_api_" + Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
-  db.users[userIndex].apiKey = newKey;
-
-  // update api_keys table too
-  const keyIndex = db.api_keys.findIndex(k => k.userId === req.user.id);
-  if (keyIndex !== -1) {
-    db.api_keys[keyIndex].apiKey = newKey;
-  } else {
-    db.api_keys.push({
-      id: "apk_" + Date.now(),
-      userId: req.user.id,
-      apiKey: newKey,
-      dailyLimit: req.user.premiumStatus === "free" ? 10 : req.user.premiumStatus === "premium" ? 2000 : 10000,
-      currentUsage: 0,
-      createdAt: new Date().toISOString()
-    });
-  }
-
-  dbInstance.save({ users: db.users, api_keys: db.api_keys });
-  addLog("info", `API Anahtarı yenilendi: ${req.user.username}`, req);
-  res.json({ success: true, apiKey: newKey });
+  res.status(403).json({ error: "API Giriş Yetkisi sistemi tamamen kaldırılmıştır." });
 });
 
 // 2FA Simülasyonu
@@ -561,11 +537,66 @@ app.get("/api/settings", (req, res) => {
   res.json({ success: true, settings: settingsObj });
 });
 
+function luhnCheck(cardNumber: string): boolean {
+  const digits = cardNumber.replace(/\D/g, "");
+  if (!digits || digits.length < 13 || digits.length > 19) return false;
+  let sum = 0;
+  let shouldDouble = false;
+  for (let i = digits.length - 1; i >= 0; i--) {
+    let digit = parseInt(digits.charAt(i), 10);
+    if (shouldDouble) {
+      digit *= 2;
+      if (digit > 9) {
+        digit -= 9;
+      }
+    }
+    sum += digit;
+    shouldDouble = !shouldDouble;
+  }
+  return sum % 10 === 0;
+}
+
+function expiryCheck(cardExpiry: string): boolean {
+  const match = cardExpiry.trim().match(/^(0[1-9]|1[0-2])\/([0-9]{2})$/);
+  if (!match) return false;
+  const month = parseInt(match[1], 10);
+  const year = parseInt("20" + match[2], 10);
+  const now = new Date();
+  const currentMonth = now.getMonth() + 1;
+  const currentYear = now.getFullYear();
+  if (year < currentYear) return false;
+  if (year === currentYear && month < currentMonth) return false;
+  return true;
+}
+
+function cvvCheck(cvv: string): boolean {
+  const cleaned = cvv.trim().replace(/\D/g, "");
+  return cleaned.length === 3 || cleaned.length === 4;
+}
+
 // 9. Premium Üyelik Satın Alma / Aktifleştirme (Simülasyon)
 app.post("/api/premium/activate", authenticateToken, (req: any, res) => {
-  const { plan } = req.body; // premium or vip
+  const { plan, cardName, cardNumber, cardExpiry, cvv } = req.body; // premium or vip + card details
   if (!plan || (plan !== "premium" && plan !== "vip")) {
     return res.status(400).json({ error: "Geçersiz üyelik planı." });
+  }
+
+  // Real Bank & Credit Card Validation
+  if (!cardName || cardName.trim().length < 3) {
+    return res.status(400).json({ error: "Lütfen geçerli bir kart sahibi adı giriniz (en az 3 karakter)." });
+  }
+  if (!cardNumber) {
+    return res.status(400).json({ error: "Lütfen kart numarasını giriniz." });
+  }
+  const cleanCardNumber = cardNumber.replace(/\D/g, "");
+  if (!luhnCheck(cleanCardNumber)) {
+    return res.status(400).json({ error: "Geçersiz kredi/banka kartı numarası! Lütfen geçerli bir kart numarası girdiğinizden emin olun (Luhn algoritması doğrulaması başarısız)." });
+  }
+  if (!cardExpiry || !expiryCheck(cardExpiry)) {
+    return res.status(400).json({ error: "Geçersiz son kullanma tarihi! Lütfen AA/YY formatında ve gelecekte olan bir tarih giriniz." });
+  }
+  if (!cvv || !cvvCheck(cvv)) {
+    return res.status(400).json({ error: "Geçersiz güvenlik kodu (CVV)! Lütfen 3 veya 4 haneli güvenlik kodunu giriniz." });
   }
 
   const db = dbInstance.getData();
@@ -578,23 +609,27 @@ app.post("/api/premium/activate", authenticateToken, (req: any, res) => {
   const expDate = new Date();
   expDate.setDate(expDate.getDate() + 30); // 30 days subscription
 
+  const maskedCard = "**** **** **** " + cleanCardNumber.slice(-4);
+
   const newPremium = {
     id: "prm_" + Date.now(),
     userId: req.user.id,
     plan: plan as "premium" | "vip",
     expiresAt: expDate.toISOString(),
     status: "active" as const,
-    createdAt: new Date().toISOString()
+    createdAt: new Date().toISOString(),
+    cardName: cardName.trim(),
+    cardNumberMasked: maskedCard
   };
 
   db.premium.unshift(newPremium);
   dbInstance.save({ users: db.users, premium: db.premium });
 
-  addLog("auth", `${req.user.username} adlı kullanıcı ${plan.toUpperCase()} plana yükseldi!`, req);
+  addLog("info", `Başarılı Ödeme: ${req.user.username} adlı kullanıcı ${plan.toUpperCase()} plana yükseldi. Kart Sahibi: ${cardName.trim()}, Kart No: ${maskedCard}`, req);
 
   res.json({
     success: true,
-    message: `Tebrikler! Hesabınız başarıyla ${plan.toUpperCase()} plana yükseltildi. Tüm sınırsız özelliklerin tadını çıkarın.`,
+    message: `Tebrikler! Ödemeniz başarıyla alındı ve hesabınız ${plan.toUpperCase()} plana yükseltildi. Tüm sınırsız özelliklerin tadını çıkarın.`,
     premiumStatus: plan
   });
 });
@@ -752,6 +787,11 @@ app.delete("/api/admin/blog/:id", authenticateToken, requireAdmin, (req, res) =>
 });
 
 // Admin Duyuru Yönetimi
+app.get("/api/admin/announcements", authenticateToken, requireAdmin, (req, res) => {
+  const db = dbInstance.getData();
+  res.json({ success: true, announcements: db.announcements });
+});
+
 app.post("/api/admin/announcements", authenticateToken, requireAdmin, (req: any, res) => {
   const { title, content, type, isPinned, status } = req.body;
   if (!title || !content) {
@@ -782,6 +822,56 @@ app.delete("/api/admin/announcements/:id", authenticateToken, requireAdmin, (req
   dbInstance.save({ announcements: db.announcements });
   addLog("info", `Duyuru silindi. ID: ${req.params.id}`, req);
   res.json({ success: true, message: "Duyuru silindi." });
+});
+
+// Admin Destek Talepleri Yönetimi
+app.get("/api/admin/tickets", authenticateToken, requireAdmin, (req, res) => {
+  const db = dbInstance.getData();
+  res.json({ success: true, tickets: db.tickets });
+});
+
+app.post("/api/admin/tickets/:id/status", authenticateToken, requireAdmin, (req: any, res) => {
+  const { status } = req.body;
+  if (!status || !["open", "answered", "closed"].includes(status)) {
+    return res.status(400).json({ error: "Geçersiz destek talebi durumu." });
+  }
+
+  const db = dbInstance.getData();
+  const index = db.tickets.findIndex(t => t.id === req.params.id);
+  if (index === -1) {
+    return res.status(404).json({ error: "Destek talebi bulunamadı." });
+  }
+
+  const ticket = db.tickets[index];
+  ticket.status = status;
+
+  if (status === "closed") {
+    // Check if the last reply is already the system closed reply to avoid duplicates
+    const systemClosedMsg = "Sohbet sonlandırıldı. Yardımcı olabileceğimiz başka bir konu varsa yeni bir destek talebi oluşturabilirsiniz.";
+    const alreadyClosed = ticket.replies.some(r => r.message === systemClosedMsg);
+    if (!alreadyClosed) {
+      ticket.replies.push({
+        id: "rep_sys_" + Date.now(),
+        senderRole: "admin",
+        senderName: "Sistem",
+        message: systemClosedMsg,
+        createdAt: new Date().toISOString()
+      });
+    }
+  }
+
+  db.tickets[index] = ticket;
+  dbInstance.save({ tickets: db.tickets });
+  addLog("info", `Destek talebi durumu güncellendi: ${req.params.id} -> ${status}`, req);
+  res.json({ success: true, ticket });
+});
+
+app.delete("/api/admin/tickets/:id", authenticateToken, requireAdmin, (req, res) => {
+  const db = dbInstance.getData();
+  db.tickets = db.tickets.filter(t => t.id !== req.params.id);
+  dbInstance.save({ tickets: db.tickets });
+  addLog("info", `Destek talebi silindi. ID: ${req.params.id}`, req);
+  res.json({ success: true, message: "Destek talebi silindi." });
 });
 
 // Admin Reklam Yönetimi / Site Ayarları Güncelleme
