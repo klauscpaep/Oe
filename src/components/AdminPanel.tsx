@@ -26,7 +26,8 @@ import {
   ArrowLeft,
   Check,
   Mail,
-  Flame
+  Flame,
+  Loader2
 } from "lucide-react";
 import { User, Download as DownloadType, Announcement, Blog, Category, SystemStats } from "../types";
 import { api } from "../api";
@@ -112,6 +113,7 @@ export default function AdminPanel({ currentUser, onRefreshData }: AdminPanelPro
   const [firebaseMessagingSenderId, setFirebaseMessagingSenderId] = useState("");
   const [firebaseAppId, setFirebaseAppId] = useState("");
   const [firebaseMeasurementId, setFirebaseMeasurementId] = useState("");
+  const [savingSettings, setSavingSettings] = useState(false);
 
   const loadDashboardData = async () => {
     setLoading(true);
@@ -442,6 +444,7 @@ export default function AdminPanel({ currentUser, onRefreshData }: AdminPanelPro
 
   const handleSaveSettings = async (e: React.FormEvent) => {
     e.preventDefault();
+    setSavingSettings(true);
     try {
       const res = await api.admin.saveSettings([
         { key: "site_name", value: siteName },
@@ -477,6 +480,8 @@ export default function AdminPanel({ currentUser, onRefreshData }: AdminPanelPro
       }
     } catch (err: any) {
       setError(err.message || "Ayarlar kaydedilemedi.");
+    } finally {
+      setSavingSettings(false);
     }
   };
 
@@ -1684,10 +1689,19 @@ export default function AdminPanel({ currentUser, onRefreshData }: AdminPanelPro
 
                 <button
                   type="submit"
-                  className="bg-teal-500 hover:bg-teal-600 text-slate-950 font-bold px-5 py-2.5 rounded-xl text-xs flex items-center space-x-1.5 transition-all shadow-md shadow-teal-500/10 cursor-pointer"
+                  disabled={savingSettings}
+                  className={`font-bold px-5 py-2.5 rounded-xl text-xs flex items-center space-x-1.5 transition-all shadow-md cursor-pointer ${
+                    savingSettings 
+                      ? "bg-slate-800 text-slate-400 border border-slate-700/50 cursor-not-allowed" 
+                      : "bg-teal-500 hover:bg-teal-600 text-slate-950 shadow-teal-500/10"
+                  }`}
                 >
-                  <CheckCircle className="h-4 w-4" />
-                  <span>Ayarları Kaydet</span>
+                  {savingSettings ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <CheckCircle className="h-4 w-4" />
+                  )}
+                  <span>{savingSettings ? "Kaydediliyor..." : "Ayarları Kaydet"}</span>
                 </button>
               </form>
             </div>
