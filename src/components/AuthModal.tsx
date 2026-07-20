@@ -108,6 +108,8 @@ export default function AuthModal({
           errorMsg = "Ağ bağlantı hatası. Lütfen internet bağlantınızı kontrol edin.";
         } else if (err.code === "auth/configuration-not-found") {
           errorMsg = "Firebase Authentication yapılandırma hatası (auth/configuration-not-found). Lütfen Firebase Console'da (Authentication > Sign-in method) Google ile Giriş yöntemini etkinleştirin ve Admin panelindeki Firebase ayarlarınızın doğruluğunu kontrol edin.";
+        } else if (err.code === "auth/unauthorized-domain") {
+          errorMsg = `Yetkisiz Alan Adı Hatası (auth/unauthorized-domain). Giriş yapmaya çalıştığınız "${window.location.hostname}" alan adı Firebase projenizde yetkilendirilmemiş. Çözüm için: Firebase Console > Authentication > Settings (veya Ayarlar) > Authorized Domains (Yetkilendirilmiş Alan Adları) listesine "${window.location.hostname}" adresini eklemeniz gerekir.`;
         } else if (err.message) {
           errorMsg = err.message;
         }

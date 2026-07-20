@@ -468,8 +468,7 @@ export class LocalDatabase {
     let modified = false;
 
     // Ensure all required collections are initialized
-    dbData.banned_users = [];
-    modified = true;
+    if (!dbData.banned_users) { dbData.banned_users = []; modified = true; }
     if (!dbData.tickets) { dbData.tickets = []; modified = true; }
     if (!dbData.reports) { dbData.reports = []; modified = true; }
     if (!dbData.blog) { dbData.blog = []; modified = true; }
