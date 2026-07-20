@@ -58,7 +58,21 @@ export default function App() {
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [recentDownloads, setRecentDownloads] = useState<Download[]>([]);
   const [tickets, setTickets] = useState<any[]>([]);
-  const [siteSettings, setSiteSettings] = useState<Record<string, string>>({});
+  const [siteSettings, setSiteSettings] = useState<Record<string, string>>(() => {
+    try {
+      const cached = localStorage.getItem("vidi_site_settings");
+      return cached ? JSON.parse(cached) : {
+        site_name: "VidiDown",
+        site_title: "VidiDown - Çoklu Platform Video & Ses Dönüştürücü",
+        maintenance_mode: "false",
+        ads_enabled: "true",
+        free_download_speed: "5",
+        premium_download_speed: "100"
+      };
+    } catch {
+      return {};
+    }
+  });
 
   // Active Popup Announcement
   const [activePopup, setActivePopup] = useState<Announcement | null>(null);
@@ -96,47 +110,55 @@ export default function App() {
   // Check login & load public content
   const initApp = async () => {
     try {
-      const health = await api.health().catch(() => null);
+      // 1. Fetch settings and health in parallel FIRST to bootstrap the UI
+      const [settingsRes, health] = await Promise.all([
+        api.getSettings().catch(() => null),
+        api.health().catch(() => null)
+      ]);
+
       if (!health) {
         setIsInstalled(false);
         return;
       }
 
-      // Check current session
-      const token = getAuthToken();
-      if (token) {
-        try {
-          const res = await api.me();
-          if (res.success) {
-            setUser(res.user);
-          }
-        } catch (err: any) {
-          if (err.banned) {
-            handleApiError(err);
-          } else {
-            setAuthToken(null);
-          }
+      if (settingsRes && settingsRes.success) {
+        setSiteSettings(settingsRes.settings);
+        localStorage.setItem("vidi_site_settings", JSON.stringify(settingsRes.settings));
+        updateFirebaseConfig(settingsRes.settings);
+      } else {
+        const cached = localStorage.getItem("vidi_site_settings");
+        if (!cached) {
+          setIsInstalled(false);
+          return;
         }
       }
 
-      // Load Settings
-      const settingsRes = await api.getSettings().catch(() => null);
-      if (settingsRes && settingsRes.success) {
-        setSiteSettings(settingsRes.settings);
-        updateFirebaseConfig(settingsRes.settings);
-      } else {
-        setIsInstalled(false);
-        return;
-      }
+      // 2. Fetch other resources in parallel to make the page load in under 100ms
+      const token = getAuthToken();
+      
+      const blogPromise = api.getBlog().catch(() => null);
+      const annPromise = api.getAnnouncements().catch(() => null);
+      const dlHistoryPromise = api.getDownloadHistory().catch(() => null);
+      
+      // Conditionally fetch user and tickets if token exists
+      const mePromise = token ? api.me().catch((err) => ({ error: err })) : Promise.resolve(null);
+      const ticketsPromise = token ? api.getTickets().catch(() => null) : Promise.resolve(null);
 
-      // Load blogs and announcements
-      const blogRes = await api.getBlog().catch(() => null);
+      const [blogRes, annRes, dlHistory, meRes, ticketRes] = await Promise.all([
+        blogPromise,
+        annPromise,
+        dlHistoryPromise,
+        mePromise,
+        ticketsPromise
+      ]);
+
+      // Handle Blog Data
       if (blogRes && blogRes.success) {
         setBlogs(blogRes.blog);
         setCategories(blogRes.categories);
       }
 
-      const annRes = await api.getAnnouncements().catch(() => null);
+      // Handle Announcements
       if (annRes && annRes.success) {
         setAnnouncements(annRes.announcements);
         const popup = annRes.announcements.find((a: Announcement) => a.type === "popup");
@@ -145,22 +167,39 @@ export default function App() {
         }
       }
 
-      // Load standard downloads history
-      const dlHistory = await api.getDownloadHistory().catch(() => null);
+      // Handle Download History
       if (dlHistory && dlHistory.success) {
         setRecentDownloads(dlHistory.downloads);
       }
 
-      // Load tickets if logged in
-      if (token) {
-        const ticketRes = await api.getTickets().catch(() => null);
-        if (ticketRes && ticketRes.success) {
-          setTickets(ticketRes.tickets);
+      // Handle User Data / Token Auth
+      if (token && meRes) {
+        if (meRes.success) {
+          setUser(meRes.user);
+        } else if (meRes.error) {
+          const err = meRes.error;
+          if (err.banned) {
+            handleApiError(err);
+          } else {
+            setAuthToken(null);
+            setUser(null);
+          }
+        } else if (meRes.banned) {
+          handleApiError(meRes);
+        } else {
+          setAuthToken(null);
+          setUser(null);
         }
+      }
+
+      // Handle Tickets
+      if (ticketRes && ticketRes.success) {
+        setTickets(ticketRes.tickets);
       }
 
       setIsInstalled(true);
     } catch (e) {
+      console.error("App initialization failed:", e);
       setIsInstalled(false);
     }
   };
@@ -178,6 +217,7 @@ export default function App() {
         if (settingsRes && settingsRes.success) {
           setSiteSettings((prev) => {
             if (JSON.stringify(prev) !== JSON.stringify(settingsRes.settings)) {
+              localStorage.setItem("vidi_site_settings", JSON.stringify(settingsRes.settings));
               updateFirebaseConfig(settingsRes.settings);
               return settingsRes.settings;
             }
@@ -224,7 +264,7 @@ export default function App() {
       } catch (err) {
         console.warn("Background sync failed silently:", err);
       }
-    }, 10000); // Polling every 10 seconds (extremely responsive and lightweight)
+    }, 3000); // Polling every 3 seconds (extremely responsive and lightweight)
 
     return () => clearInterval(syncInterval);
   }, []);

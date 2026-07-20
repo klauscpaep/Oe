@@ -204,7 +204,7 @@ app.post("/api/auth/register", (req, res) => {
     status: "active",
     avatar: `https://api.dicebear.com/7.x/bottts/svg?seed=${username}`,
     apiKey,
-    premiumStatus: isMasterAdmin ? "vip" : "free",
+    premiumStatus: "free",
     twoFactorEnabled: false,
     lastIp: clientIp,
     createdAt: new Date().toISOString()
@@ -342,7 +342,7 @@ app.post("/api/auth/firebase-login", (req, res) => {
       status: "active",
       avatar: avatar || `https://api.dicebear.com/7.x/bottts/svg?seed=${targetUsername}`,
       apiKey,
-      premiumStatus: isMasterAdmin ? "vip" : "free",
+      premiumStatus: "free",
       twoFactorEnabled: false,
       lastIp: clientIp,
       createdAt: new Date().toISOString()
@@ -444,11 +444,11 @@ app.post("/api/auth/forgot-password", async (req, res) => {
       text: `Merhaba,\n\nHesabınızın şifresini sıfırlamak için talepte bulundunuz. Şifre sıfırlama doğrulama kodunuz:\n\n${code}\n\nBu kod 15 dakika boyunca geçerlidir. Bu talebi siz yapmadıysanız, lütfen bu e-postayı dikkate almayın.\n\nSaygılarımızla,\n${siteName} Ekibi`,
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 8px; background-color: #ffffff; color: #333333;">
-          <h2 style="color: #0d9488; text-align: center; margin-bottom: 24px;">\${siteName} Şifre Sıfırlama</h2>
+          <h2 style="color: #0d9488; text-align: center; margin-bottom: 24px;">${siteName} Şifre Sıfırlama</h2>
           <p>Merhaba,</p>
           <p>Hesabınızın şifresini sıfırlamak için doğrulama kodu talep ettiniz. Şifrenizi sıfırlamak için aşağıdaki doğrulama kodunu kullanabilirsiniz:</p>
           <div style="text-align: center; margin: 30px 0;">
-            <span style="font-size: 24px; font-weight: bold; letter-spacing: 4px; padding: 12px 24px; background-color: #f1f5f9; border-radius: 6px; border: 1px solid #cbd5e1; color: #1e293b; display: inline-block;">\${code}</span>
+            <span style="font-size: 24px; font-weight: bold; letter-spacing: 4px; padding: 12px 24px; background-color: #f1f5f9; border-radius: 6px; border: 1px solid #cbd5e1; color: #1e293b; display: inline-block;">${code}</span>
           </div>
           <p style="color: #64748b; font-size: 13px;">Bu kod 15 dakika boyunca geçerlidir. Eğer bu talebi siz yapmadıysanız, bu e-postayı güvenle yok sayabilirsiniz.</p>
           <hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 20px 0;" />
@@ -461,8 +461,8 @@ app.post("/api/auth/forgot-password", async (req, res) => {
     return res.json({ success: true, message: "Şifre sıfırlama doğrulama kodu e-postanıza başarıyla gönderildi." });
   } catch (error: any) {
     console.error("Nodemailer SMTP Error:", error);
-    addLog("error", `SMTP e-posta gönderim hatası: \${error.message || error}`, req);
-    return res.status(500).json({ error: `E-posta gönderilemedi. Sunucu hatası: \${error.message || "Bilinmeyen hata"}` });
+    addLog("error", `SMTP e-posta gönderim hatası: ${error.message || error}`, req);
+    return res.status(500).json({ error: `E-posta gönderilemedi. Sunucu hatası: ${error.message || "Bilinmeyen hata"}` });
   }
 });
 
