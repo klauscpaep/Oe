@@ -437,6 +437,35 @@ export default function AdminPanel({ currentUser, onRefreshData }: AdminPanelPro
     }
   };
 
+  const handleToggleSetting = async (key: string, newValue: string) => {
+    try {
+      const res = await api.admin.saveSettings([
+        { key: "site_name", value: siteName },
+        { key: "site_title", value: siteTitle },
+        { key: "maintenance_mode", value: key === "maintenance_mode" ? newValue : maintenanceMode },
+        { key: "ads_enabled", value: key === "ads_enabled" ? newValue : adsEnabled },
+        { key: "adsense_client_id", value: adsenseClient },
+        { key: "ad_slot_header", value: adSlotHeader },
+        { key: "ad_slot_download", value: adSlotDownload },
+        { key: "ad_slot_sidebar", value: adSlotSidebar },
+        { key: "ad_slot_popunder", value: adSlotPopunder },
+        { key: "free_download_speed", value: freeSpeed },
+        { key: "premium_download_speed", value: premiumSpeed },
+        { key: "premium_price", value: premiumPrice },
+        { key: "vip_price", value: vipPrice }
+      ]);
+      if (res.success) {
+        if (key === "maintenance_mode") setMaintenanceMode(newValue);
+        if (key === "ads_enabled") setAdsEnabled(newValue);
+        setSuccess(`${key === "maintenance_mode" ? "Bakım modu" : "Reklam dağıtımı"} başarıyla ${newValue === "true" ? "açıldı" : "kapatıldı"}.`);
+        setTimeout(() => setSuccess(""), 3000);
+      }
+    } catch (err: any) {
+      setError(err.message || "Ayar değiştirilemedi.");
+      setTimeout(() => setError(""), 3000);
+    }
+  };
+
   const handleClearCache = async () => {
     try {
       const res = await api.admin.clearCache();
@@ -599,6 +628,69 @@ export default function AdminPanel({ currentUser, onRefreshData }: AdminPanelPro
           {/* DASHBOARD TAB */}
           {activeTab === "dashboard" && stats && (
             <div className="space-y-8">
+              {/* Hızlı Sistem & Reklam Kontrolleri */}
+              <div className="bg-slate-950 p-6 rounded-2xl border border-slate-900/60 grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="flex items-center justify-between">
+                  <div className="space-y-1">
+                    <h4 className="text-xs font-bold text-slate-200 uppercase tracking-wider flex items-center space-x-2">
+                      <AlertTriangle className={`h-4 w-4 ${maintenanceMode === "true" ? "text-amber-500 animate-pulse" : "text-slate-500"}`} />
+                      <span>Bakım Modu (Maintenance)</span>
+                    </h4>
+                    <p className="text-[11px] text-slate-500">Açık olduğunda sadece yöneticiler siteye erişebilir.</p>
+                  </div>
+                  <div className="flex items-center space-x-3">
+                    <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded border ${
+                      maintenanceMode === "true" ? "bg-amber-500/10 text-amber-400 border-amber-500/20" : "bg-slate-900 text-slate-500 border-slate-800"
+                    }`}>
+                      {maintenanceMode === "true" ? "AKTİF" : "KAPALI"}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => handleToggleSetting("maintenance_mode", maintenanceMode === "true" ? "false" : "true")}
+                      className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                        maintenanceMode === "true" ? "bg-amber-500" : "bg-slate-800"
+                      }`}
+                    >
+                      <span
+                        className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                          maintenanceMode === "true" ? "translate-x-5" : "translate-x-0"
+                        }`}
+                      />
+                    </button>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between border-t md:border-t-0 md:border-l border-slate-900/60 pt-4 md:pt-0 md:pl-6">
+                  <div className="space-y-1">
+                    <h4 className="text-xs font-bold text-slate-200 uppercase tracking-wider flex items-center space-x-2">
+                      <Megaphone className={`h-4 w-4 ${adsEnabled === "true" ? "text-teal-400" : "text-slate-500"}`} />
+                      <span>Reklam Dağıtımı (Ads)</span>
+                    </h4>
+                    <p className="text-[11px] text-slate-500">Sitedeki tüm Google AdSense ve özel reklam alanları.</p>
+                  </div>
+                  <div className="flex items-center space-x-3">
+                    <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded border ${
+                      adsEnabled === "true" ? "bg-teal-500/10 text-teal-400 border-teal-500/20" : "bg-slate-900 text-slate-500 border-slate-800"
+                    }`}>
+                      {adsEnabled === "true" ? "AKTİF" : "KAPALI"}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => handleToggleSetting("ads_enabled", adsEnabled === "true" ? "false" : "true")}
+                      className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                        adsEnabled === "true" ? "bg-teal-500" : "bg-slate-800"
+                      }`}
+                    >
+                      <span
+                        className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                          adsEnabled === "true" ? "translate-x-5" : "translate-x-0"
+                        }`}
+                      />
+                    </button>
+                  </div>
+                </div>
+              </div>
+
               {/* Stat Counters Cards */}
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <div className="bg-slate-950 p-5 rounded-2xl border border-slate-900/60 flex flex-col justify-between">
