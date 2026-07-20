@@ -113,7 +113,7 @@
   "settings": [
     {
       "key": "site_name",
-      "value": "VidiDown"
+      "value": "İnan"
     },
     {
       "key": "site_title",
@@ -193,34 +193,55 @@
     },
     {
       "key": "firebase_api_key",
-      "value": "AIzaSyBvYe30DDUv7UQyiqqvSyf3grrFtAypOcc"
+      "value": "AIzaSyBjpZaRg2SW_NnFkKdQS7Li_FpuVdLnALQ"
     },
     {
       "key": "firebase_auth_domain",
-      "value": "test-b2c10.firebaseapp.com"
+      "value": "taner-940e0.firebaseapp.com"
     },
     {
       "key": "firebase_project_id",
-      "value": "test-b2c10"
+      "value": "taner-940e0"
     },
     {
       "key": "firebase_storage_bucket",
-      "value": "test-b2c10.firebasestorage.app"
+      "value": "taner-940e0.firebasestorage.app"
     },
     {
       "key": "firebase_messaging_sender_id",
-      "value": "327490613808"
+      "value": "884167595596"
     },
     {
       "key": "firebase_app_id",
-      "value": "1:327490613808:web:7df47f3ac51de38c17f3f5"
+      "value": "1:884167595596:web:b4b61823680838d41f86e9"
     },
     {
       "key": "firebase_measurement_id",
-      "value": "G-6MNLW7ME6G"
+      "value": "G-M09E9W2RX9"
     }
   ],
   "logs": [
+    {
+      "id": "log_1784582722077_770",
+      "type": "auth",
+      "message": "Kullanıcı giriş yaptı: admin",
+      "ip": "2a00:1d35:93f1:da00:c559:cc47:315c:77e4",
+      "createdAt": "2026-07-20T21:25:22.077Z"
+    },
+    {
+      "id": "log_1784581849113_911",
+      "type": "info",
+      "message": "Site genel ayarları güncellendi.",
+      "ip": "2a00:1d35:93f1:da00:c559:cc47:315c:77e4",
+      "createdAt": "2026-07-20T21:10:49.113Z"
+    },
+    {
+      "id": "log_1784581745098_841",
+      "type": "info",
+      "message": "Site genel ayarları güncellendi.",
+      "ip": "2a00:1d35:93f1:da00:c559:cc47:315c:77e4",
+      "createdAt": "2026-07-20T21:09:05.098Z"
+    },
     {
       "id": "log_1784580274457_300",
       "type": "info",
