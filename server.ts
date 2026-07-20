@@ -7,7 +7,7 @@ import { GoogleGenAI } from "@google/genai";
 import { createServer as createViteServer } from "vite";
 import { dbInstance, User, Download, Announcement, Setting, Log, Ticket, Blog, Category, Report, BannedUser } from "./server/db";
 
-const PORT = 3000;
+const PORT = process.env.PORT ? Number(process.env.PORT) : 3000;
 const JWT_SECRET = "vididown_super_jwt_secret_998811";
 
 // Lazy initialize Gemini API to handle missing keys gracefully
