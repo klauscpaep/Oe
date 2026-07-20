@@ -24,7 +24,9 @@ import {
   LifeBuoy,
   Send,
   ArrowLeft,
-  Check
+  Check,
+  Mail,
+  Flame
 } from "lucide-react";
 import { User, Download as DownloadType, Announcement, Blog, Category, SystemStats } from "../types";
 import { api } from "../api";
@@ -95,6 +97,22 @@ export default function AdminPanel({ currentUser, onRefreshData }: AdminPanelPro
   const [premiumPrice, setPremiumPrice] = useState("149");
   const [vipPrice, setVipPrice] = useState("399");
 
+  // SMTP Settings
+  const [smtpHost, setSmtpHost] = useState("smtp.gmail.com");
+  const [smtpPort, setSmtpPort] = useState("587");
+  const [smtpUser, setSmtpUser] = useState("");
+  const [smtpPass, setSmtpPass] = useState("");
+  const [smtpSecure, setSmtpSecure] = useState("false");
+
+  // Firebase Settings
+  const [firebaseApiKey, setFirebaseApiKey] = useState("");
+  const [firebaseAuthDomain, setFirebaseAuthDomain] = useState("");
+  const [firebaseProjectId, setFirebaseProjectId] = useState("");
+  const [firebaseStorageBucket, setFirebaseStorageBucket] = useState("");
+  const [firebaseMessagingSenderId, setFirebaseMessagingSenderId] = useState("");
+  const [firebaseAppId, setFirebaseAppId] = useState("");
+  const [firebaseMeasurementId, setFirebaseMeasurementId] = useState("");
+
   const loadDashboardData = async () => {
     setLoading(true);
     try {
@@ -153,6 +171,18 @@ export default function AdminPanel({ currentUser, onRefreshData }: AdminPanelPro
         if (s.premium_download_speed) setPremiumSpeed(s.premium_download_speed);
         if (s.premium_price) setPremiumPrice(s.premium_price);
         if (s.vip_price) setVipPrice(s.vip_price);
+        if (s.smtp_host) setSmtpHost(s.smtp_host);
+        if (s.smtp_port) setSmtpPort(s.smtp_port);
+        if (s.smtp_user) setSmtpUser(s.smtp_user);
+        if (s.smtp_pass) setSmtpPass(s.smtp_pass);
+        if (s.smtp_secure) setSmtpSecure(s.smtp_secure);
+        if (s.firebase_api_key) setFirebaseApiKey(s.firebase_api_key);
+        if (s.firebase_auth_domain) setFirebaseAuthDomain(s.firebase_auth_domain);
+        if (s.firebase_project_id) setFirebaseProjectId(s.firebase_project_id);
+        if (s.firebase_storage_bucket) setFirebaseStorageBucket(s.firebase_storage_bucket);
+        if (s.firebase_messaging_sender_id) setFirebaseMessagingSenderId(s.firebase_messaging_sender_id);
+        if (s.firebase_app_id) setFirebaseAppId(s.firebase_app_id);
+        if (s.firebase_measurement_id) setFirebaseMeasurementId(s.firebase_measurement_id);
       }
 
     } catch (err: any) {
@@ -426,10 +456,22 @@ export default function AdminPanel({ currentUser, onRefreshData }: AdminPanelPro
         { key: "free_download_speed", value: freeSpeed },
         { key: "premium_download_speed", value: premiumSpeed },
         { key: "premium_price", value: premiumPrice },
-        { key: "vip_price", value: vipPrice }
+        { key: "vip_price", value: vipPrice },
+        { key: "smtp_host", value: smtpHost },
+        { key: "smtp_port", value: smtpPort },
+        { key: "smtp_user", value: smtpUser },
+        { key: "smtp_pass", value: smtpPass },
+        { key: "smtp_secure", value: smtpSecure },
+        { key: "firebase_api_key", value: firebaseApiKey },
+        { key: "firebase_auth_domain", value: firebaseAuthDomain },
+        { key: "firebase_project_id", value: firebaseProjectId },
+        { key: "firebase_storage_bucket", value: firebaseStorageBucket },
+        { key: "firebase_messaging_sender_id", value: firebaseMessagingSenderId },
+        { key: "firebase_app_id", value: firebaseAppId },
+        { key: "firebase_measurement_id", value: firebaseMeasurementId }
       ]);
       if (res.success) {
-        setSuccess("Site ayarları başarıyla kaydedildi.");
+        setSuccess("Site, SMTP ve Firebase ayarları başarıyla kaydedildi.");
         setTimeout(() => setSuccess(""), 3000);
       }
     } catch (err: any) {
@@ -452,7 +494,19 @@ export default function AdminPanel({ currentUser, onRefreshData }: AdminPanelPro
         { key: "free_download_speed", value: freeSpeed },
         { key: "premium_download_speed", value: premiumSpeed },
         { key: "premium_price", value: premiumPrice },
-        { key: "vip_price", value: vipPrice }
+        { key: "vip_price", value: vipPrice },
+        { key: "smtp_host", value: smtpHost },
+        { key: "smtp_port", value: smtpPort },
+        { key: "smtp_user", value: smtpUser },
+        { key: "smtp_pass", value: smtpPass },
+        { key: "smtp_secure", value: smtpSecure },
+        { key: "firebase_api_key", value: firebaseApiKey },
+        { key: "firebase_auth_domain", value: firebaseAuthDomain },
+        { key: "firebase_project_id", value: firebaseProjectId },
+        { key: "firebase_storage_bucket", value: firebaseStorageBucket },
+        { key: "firebase_messaging_sender_id", value: firebaseMessagingSenderId },
+        { key: "firebase_app_id", value: firebaseAppId },
+        { key: "firebase_measurement_id", value: firebaseMeasurementId }
       ]);
       if (res.success) {
         if (key === "maintenance_mode") setMaintenanceMode(newValue);
@@ -1452,6 +1506,175 @@ export default function AdminPanel({ currentUser, onRefreshData }: AdminPanelPro
                         value={vipPrice}
                         onChange={(e) => setVipPrice(e.target.value)}
                         className="w-full bg-slate-950 border border-slate-900 rounded-xl px-4 py-2.5 text-xs text-slate-100 focus:outline-none"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* E-posta Gönderim Ayarları (SMTP) */}
+                <div className="border-t border-slate-900/60 pt-4 space-y-4">
+                  <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
+                    <h4 className="text-xs font-bold text-teal-400 uppercase tracking-wider flex items-center space-x-1.5">
+                      <Mail className="h-3.5 w-3.5" />
+                      <span>E-posta Gönderim Ayarları (SMTP / Gmail)</span>
+                    </h4>
+                    <span className="text-[10px] bg-teal-500/10 text-teal-400 border border-teal-500/20 rounded px-2 py-0.5">
+                      Şifremi Unuttum Doğrulama Kodu İçin
+                    </span>
+                  </div>
+                  <p className="text-slate-500 text-[11px] -mt-2">
+                    Sistemdeki kullanıcıların şifrelerini unuttuklarında doğrulama kodu alabilmeleri için Gmail veya özel bir SMTP sunucusu bilgilerinizi giriniz. 
+                    <strong className="text-amber-400/90 ml-1">Önemli (Gmail):</strong> İki adımlı doğrulaması açık olan bir Gmail hesabından "Uygulama Şifreleri" kısmından 16 haneli bir şifre oluşturup "SMTP Şifresi" kısmına yapıştırmalısınız.
+                  </p>
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2">SMTP Host / Sunucu</label>
+                      <input
+                        type="text"
+                        placeholder="smtp.gmail.com"
+                        value={smtpHost}
+                        onChange={(e) => setSmtpHost(e.target.value)}
+                        className="w-full bg-slate-950 border border-slate-900 rounded-xl px-4 py-2.5 text-xs text-slate-100 focus:outline-none font-mono"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2">SMTP Port</label>
+                      <input
+                        type="text"
+                        placeholder="587 veya 465"
+                        value={smtpPort}
+                        onChange={(e) => setSmtpPort(e.target.value)}
+                        className="w-full bg-slate-950 border border-slate-900 rounded-xl px-4 py-2.5 text-xs text-slate-100 focus:outline-none font-mono"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2">Güvenli Bağlantı (SSL / TLS)</label>
+                      <select
+                        value={smtpSecure}
+                        onChange={(e) => setSmtpSecure(e.target.value)}
+                        className="w-full bg-slate-950 border border-slate-900 rounded-xl px-4 py-2.5 text-xs text-slate-300 focus:outline-none"
+                      >
+                        <option value="false">STARTTLS / TLS (Port 587 için önerilir)</option>
+                        <option value="true">SSL / TLS (Port 465 için önerilir)</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2">SMTP Kullanıcı Adı (E-posta)</label>
+                      <input
+                        type="email"
+                        placeholder="ornek@gmail.com"
+                        value={smtpUser}
+                        onChange={(e) => setSmtpUser(e.target.value)}
+                        className="w-full bg-slate-950 border border-slate-900 rounded-xl px-4 py-2.5 text-xs text-slate-100 focus:outline-none font-mono"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2">SMTP Şifresi / Uygulama Şifresi</label>
+                      <input
+                        type="password"
+                        placeholder="••••••••••••••••"
+                        value={smtpPass}
+                        onChange={(e) => setSmtpPass(e.target.value)}
+                        className="w-full bg-slate-950 border border-slate-900 rounded-xl px-4 py-2.5 text-xs text-slate-100 focus:outline-none font-mono"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Firebase Ayarları */}
+                <div className="border-t border-slate-900/60 pt-4 space-y-4">
+                  <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
+                    <h4 className="text-xs font-bold text-teal-400 uppercase tracking-wider flex items-center space-x-1.5">
+                      <Flame className="h-3.5 w-3.5 text-amber-500" />
+                      <span>Firebase Bağlantı Ayarları</span>
+                    </h4>
+                    <span className="text-[10px] bg-amber-500/10 text-amber-400 border border-amber-500/20 rounded px-2 py-0.5">
+                      İstemci & Veritabanı Yapılandırması
+                    </span>
+                  </div>
+                  <p className="text-slate-500 text-[11px] -mt-2">
+                    Firebase entegrasyonu, kimlik doğrulama, kullanıcı yönetimi ve ek veritabanı özellikleri için gereklidir. Firebase Console üzerinden aldığınız web uygulaması yapılandırma parametrelerini buraya girebilirsiniz.
+                  </p>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2">Firebase API Key</label>
+                      <input
+                        type="text"
+                        placeholder="AIzaSy..."
+                        value={firebaseApiKey}
+                        onChange={(e) => setFirebaseApiKey(e.target.value)}
+                        className="w-full bg-slate-950 border border-slate-900 rounded-xl px-4 py-2.5 text-xs text-slate-100 focus:outline-none font-mono"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2">Auth Domain</label>
+                      <input
+                        type="text"
+                        placeholder="projeniz.firebaseapp.com"
+                        value={firebaseAuthDomain}
+                        onChange={(e) => setFirebaseAuthDomain(e.target.value)}
+                        className="w-full bg-slate-950 border border-slate-900 rounded-xl px-4 py-2.5 text-xs text-slate-100 focus:outline-none font-mono"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2">Project ID</label>
+                      <input
+                        type="text"
+                        placeholder="projeniz-id"
+                        value={firebaseProjectId}
+                        onChange={(e) => setFirebaseProjectId(e.target.value)}
+                        className="w-full bg-slate-950 border border-slate-900 rounded-xl px-4 py-2.5 text-xs text-slate-100 focus:outline-none font-mono"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2">Storage Bucket</label>
+                      <input
+                        type="text"
+                        placeholder="projeniz.appspot.com"
+                        value={firebaseStorageBucket}
+                        onChange={(e) => setFirebaseStorageBucket(e.target.value)}
+                        className="w-full bg-slate-950 border border-slate-900 rounded-xl px-4 py-2.5 text-xs text-slate-100 focus:outline-none font-mono"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2">Messaging Sender ID</label>
+                      <input
+                        type="text"
+                        placeholder="894723912401"
+                        value={firebaseMessagingSenderId}
+                        onChange={(e) => setFirebaseMessagingSenderId(e.target.value)}
+                        className="w-full bg-slate-950 border border-slate-900 rounded-xl px-4 py-2.5 text-xs text-slate-100 focus:outline-none font-mono"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2">App ID</label>
+                      <input
+                        type="text"
+                        placeholder="1:894723912401:web:abc123xyz"
+                        value={firebaseAppId}
+                        onChange={(e) => setFirebaseAppId(e.target.value)}
+                        className="w-full bg-slate-950 border border-slate-900 rounded-xl px-4 py-2.5 text-xs text-slate-100 focus:outline-none font-mono"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2">Measurement ID</label>
+                      <input
+                        type="text"
+                        placeholder="G-ABC123XYZ"
+                        value={firebaseMeasurementId}
+                        onChange={(e) => setFirebaseMeasurementId(e.target.value)}
+                        className="w-full bg-slate-950 border border-slate-900 rounded-xl px-4 py-2.5 text-xs text-slate-100 focus:outline-none font-mono"
                       />
                     </div>
                   </div>

@@ -23,7 +23,7 @@ export default function AuthModal({
   initialMode, 
   initialBannedUser 
 }: AuthModalProps) {
-  const [mode, setMode] = useState<"login" | "register" | "forgot" | "twoFactor" | "banned">("login");
+  const [mode, setMode] = useState<"login" | "register" | "forgot" | "resetWithCode" | "twoFactor" | "banned">("login");
   const [bannedUser, setBannedUser] = useState<{
     userId: string;
     username: string;
@@ -59,6 +59,10 @@ export default function AuthModal({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [successMsg, setSuccessMsg] = useState("");
+
+  const [resetCode, setResetCode] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [newPasswordRepeat, setNewPasswordRepeat] = useState("");
 
   const handleSocialLogin = (platform: "Google" | "Discord") => {
     setLoading(true);
@@ -112,9 +116,25 @@ export default function AuthModal({
           onClose();
         }
       } else if (mode === "forgot") {
-        // Mock forgot password link
-        setSuccessMsg("Şifre sıfırlama bağlantısı e-posta adresinize gönderildi!");
-        setTimeout(() => setMode("login"), 3000);
+        const res = await api.requestPasswordResetCode(email);
+        if (res.success) {
+          setSuccessMsg(res.message || "Doğrulama kodu e-posta adresinize gönderildi!");
+          setMode("resetWithCode");
+        }
+      } else if (mode === "resetWithCode") {
+        if (newPassword !== newPasswordRepeat) {
+          throw new Error("Girdiğiniz yeni şifreler uyuşmuyor.");
+        }
+        const res = await api.resetPasswordWithCode({ email, code: resetCode, newPassword });
+        if (res.success) {
+          setSuccessMsg(res.message || "Şifreniz başarıyla güncellendi! Giriş yapabilirsiniz.");
+          setTimeout(() => {
+            setMode("login");
+            setResetCode("");
+            setNewPassword("");
+            setNewPasswordRepeat("");
+          }, 3000);
+        }
       } else if (mode === "twoFactor") {
         if (twoFactorCode === "123456" || twoFactorCode.length === 6) {
           // fetch me to confirm
@@ -199,13 +219,15 @@ export default function AuthModal({
             {mode === "login" && "Tekrar Hoş Geldiniz!"}
             {mode === "register" && "Ücretsiz Hesap Oluşturun"}
             {mode === "forgot" && "Şifremi Unuttum"}
+            {mode === "resetWithCode" && "Yeni Şifre Belirleyin"}
             {mode === "twoFactor" && "İki Adımlı Doğrulama (2FA)"}
             {mode === "banned" && "Ban Yedin Kanka! 🔒"}
           </h3>
           <p className="text-slate-400 text-xs mt-1">
             {mode === "login" && "Videolarınızı indirmeye ve dönüştürmeye hemen başlayın."}
             {mode === "register" && "İndirme geçmişini görmek ve favorilere kaydetmek için kaydolun."}
-            {mode === "forgot" && "Kayıtlı e-posta adresinizi girerek şifrenizi yenileyin."}
+            {mode === "forgot" && "Kayıtlı e-posta adresinizi girerek doğrulama kodu talep edin."}
+            {mode === "resetWithCode" && "E-postanıza gönderilen doğrulama kodunu ve yeni şifrenizi giriniz."}
             {mode === "twoFactor" && "Lütfen cep telefonunuzdaki doğrulama uygulamasından gelen 6 haneli kodu giriniz."}
             {mode === "banned" && "Kurallara uymadığın tespit edildiği için bu hesaba erişimin geçici veya kalıcı olarak engellendi."}
           </p>
@@ -300,13 +322,65 @@ export default function AuthModal({
                   placeholder="hakan@gmail.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-800 text-slate-200 pl-10 pr-4 py-2.5 rounded-xl text-xs focus:outline-none focus:border-rose-500 focus:ring-1 focus:ring-rose-500 transition-all"
+                  disabled={mode === "resetWithCode"}
+                  className="w-full bg-slate-950 border border-slate-800 text-slate-200 pl-10 pr-4 py-2.5 rounded-xl text-xs focus:outline-none focus:border-rose-500 focus:ring-1 focus:ring-rose-500 transition-all disabled:opacity-50"
                 />
               </div>
             </div>
 
+            {/* Reset With Code Fields */}
+            {mode === "resetWithCode" && (
+              <>
+                <div>
+                  <label className="block text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-1.5">6 Haneli Doğrulama Kodu</label>
+                  <div className="relative">
+                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
+                    <input
+                      type="text"
+                      required
+                      maxLength={6}
+                      placeholder="123456"
+                      value={resetCode}
+                      onChange={(e) => setResetCode(e.target.value)}
+                      className="w-full bg-slate-950 border border-slate-800 text-slate-200 pl-10 pr-4 py-2.5 rounded-xl text-xs focus:outline-none focus:border-rose-500 focus:ring-1 focus:ring-rose-500 transition-all font-mono tracking-wider"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Yeni Şifre</label>
+                  <div className="relative">
+                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
+                    <input
+                      type="password"
+                      required
+                      placeholder="••••••••"
+                      value={newPassword}
+                      onChange={(e) => setNewPassword(e.target.value)}
+                      className="w-full bg-slate-950 border border-slate-800 text-slate-200 pl-10 pr-4 py-2.5 rounded-xl text-xs focus:outline-none focus:border-rose-500 focus:ring-1 focus:ring-rose-500 transition-all"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Yeni Şifre Tekrarı</label>
+                  <div className="relative">
+                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
+                    <input
+                      type="password"
+                      required
+                      placeholder="••••••••"
+                      value={newPasswordRepeat}
+                      onChange={(e) => setNewPasswordRepeat(e.target.value)}
+                      className="w-full bg-slate-950 border border-slate-800 text-slate-200 pl-10 pr-4 py-2.5 rounded-xl text-xs focus:outline-none focus:border-rose-500 focus:ring-1 focus:ring-rose-500 transition-all"
+                    />
+                  </div>
+                </div>
+              </>
+            )}
+
             {/* Password */}
-            {mode !== "forgot" && (
+            {mode !== "forgot" && mode !== "resetWithCode" && (
               <div>
                 <div className="flex justify-between items-center mb-1.5">
                   <label className="block text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Şifre</label>
@@ -374,7 +448,7 @@ export default function AuthModal({
               disabled={loading}
               className="w-full bg-gradient-to-r from-rose-500 to-rose-600 hover:from-rose-600 hover:to-rose-700 disabled:opacity-50 text-white font-semibold py-3 px-4 rounded-xl text-xs shadow-lg shadow-rose-500/10 hover:shadow-rose-500/20 transition-all mt-2 cursor-pointer"
             >
-              {loading ? "Lütfen bekleyin..." : mode === "login" ? "Giriş Yap" : mode === "register" ? "Hesap Oluştur" : "Sıfırlama Bağlantısı Gönder"}
+              {loading ? "Lütfen bekleyin..." : mode === "login" ? "Giriş Yap" : mode === "register" ? "Hesap Oluştur" : mode === "resetWithCode" ? "Şifreyi Güncelle" : "Sıfırlama Kodu Gönder"}
             </button>
           </form>
         ) : (

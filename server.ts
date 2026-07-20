@@ -3,6 +3,7 @@ import path from "path";
 import fs from "fs";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
+import nodemailer from "nodemailer";
 import { GoogleGenAI } from "@google/genai";
 import { createServer as createViteServer } from "vite";
 import { dbInstance, User, Download, Announcement, Setting, Log, Ticket, Blog, Category, Report, BannedUser } from "./server/db";
@@ -285,6 +286,130 @@ app.post("/api/auth/login", (req, res) => {
       twoFactorEnabled: user.twoFactorEnabled
     }
   });
+});
+
+// 3. Password Reset APIs
+const resetCodes = new Map<string, { code: string; expiresAt: number }>();
+
+// helper to get a setting from db
+const getSettingVal = (key: string, defaultValue: string = "") => {
+  const db = dbInstance.getData();
+  const setting = db.settings.find(s => s.key === key);
+  return setting ? setting.value : defaultValue;
+};
+
+app.post("/api/auth/forgot-password", async (req, res) => {
+  const { email } = req.body;
+  if (!email) {
+    return res.status(400).json({ error: "E-posta adresi gereklidir." });
+  }
+
+  const db = dbInstance.getData();
+  const user = db.users.find(u => u.email.toLowerCase() === email.toLowerCase());
+
+  if (!user) {
+    // Return success to avoid user enumeration, but tell them if it exists, it was sent
+    return res.json({ success: true, message: "Eğer e-posta adresi kayıtlı ise, şifre sıfırlama kodu gönderilmiştir." });
+  }
+
+  // Generate 6-digit numeric code
+  const code = Math.floor(100000 + Math.random() * 900000).toString();
+  resetCodes.set(email.toLowerCase(), {
+    code,
+    expiresAt: Date.now() + 15 * 60 * 1000 // 15 mins
+  });
+
+  const host = getSettingVal("smtp_host");
+  const port = Number(getSettingVal("smtp_port") || "587");
+  const smtpUserSetting = getSettingVal("smtp_user");
+  const pass = getSettingVal("smtp_pass");
+  const secure = getSettingVal("smtp_secure") === "true";
+
+  if (!host || !smtpUserSetting || !pass) {
+    return res.status(500).json({ error: "Sistem yöneticisi henüz e-posta gönderim (SMTP) ayarlarını yapmamış. Lütfen yönetici ile iletişime geçiniz." });
+  }
+
+  try {
+    const transporter = nodemailer.createTransport({
+      host,
+      port,
+      secure,
+      auth: {
+        user: smtpUserSetting,
+        pass,
+      },
+      tls: {
+        rejectUnauthorized: false
+      }
+    });
+
+    const siteName = getSettingVal("site_name", "VidiDown");
+
+    await transporter.sendMail({
+      from: `"${siteName}" <${smtpUserSetting}>`,
+      to: email,
+      subject: `${siteName} - Şifre Sıfırlama Doğrulama Kodu`,
+      text: `Merhaba,\n\nHesabınızın şifresini sıfırlamak için talepte bulundunuz. Şifre sıfırlama doğrulama kodunuz:\n\n${code}\n\nBu kod 15 dakika boyunca geçerlidir. Bu talebi siz yapmadıysanız, lütfen bu e-postayı dikkate almayın.\n\nSaygılarımızla,\n${siteName} Ekibi`,
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 8px; background-color: #ffffff; color: #333333;">
+          <h2 style="color: #0d9488; text-align: center; margin-bottom: 24px;">\${siteName} Şifre Sıfırlama</h2>
+          <p>Merhaba,</p>
+          <p>Hesabınızın şifresini sıfırlamak için doğrulama kodu talep ettiniz. Şifrenizi sıfırlamak için aşağıdaki doğrulama kodunu kullanabilirsiniz:</p>
+          <div style="text-align: center; margin: 30px 0;">
+            <span style="font-size: 24px; font-weight: bold; letter-spacing: 4px; padding: 12px 24px; background-color: #f1f5f9; border-radius: 6px; border: 1px solid #cbd5e1; color: #1e293b; display: inline-block;">\${code}</span>
+          </div>
+          <p style="color: #64748b; font-size: 13px;">Bu kod 15 dakika boyunca geçerlidir. Eğer bu talebi siz yapmadıysanız, bu e-postayı güvenle yok sayabilirsiniz.</p>
+          <hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 20px 0;" />
+          <p style="color: #94a3b8; font-size: 11px; text-align: center;">Bu e-posta otomatik olarak gönderilmiştir. Lütfen yanıtlamayınız.</p>
+        </div>
+      `
+    });
+
+    addLog("auth", `Şifre sıfırlama kodu gönderildi: ${email}`, req);
+    return res.json({ success: true, message: "Şifre sıfırlama doğrulama kodu e-postanıza başarıyla gönderildi." });
+  } catch (error: any) {
+    console.error("Nodemailer SMTP Error:", error);
+    addLog("error", `SMTP e-posta gönderim hatası: \${error.message || error}`, req);
+    return res.status(500).json({ error: `E-posta gönderilemedi. Sunucu hatası: \${error.message || "Bilinmeyen hata"}` });
+  }
+});
+
+app.post("/api/auth/reset-password", (req, res) => {
+  const { email, code, newPassword } = req.body;
+  if (!email || !code || !newPassword) {
+    return res.status(400).json({ error: "Tüm alanları doldurmanız gerekmektedir (E-posta, Kod, Yeni Şifre)." });
+  }
+
+  const stored = resetCodes.get(email.toLowerCase());
+  if (!stored) {
+    return res.status(400).json({ error: "Sıfırlama kodu süresi dolmuş veya geçersiz." });
+  }
+
+  if (stored.expiresAt < Date.now()) {
+    resetCodes.delete(email.toLowerCase());
+    return res.status(400).json({ error: "Sıfırlama kodunun süresi dolmuş." });
+  }
+
+  if (stored.code !== String(code).trim()) {
+    return res.status(400).json({ error: "Girdiğiniz sıfırlama kodu hatalı." });
+  }
+
+  // Code is correct!
+  const db = dbInstance.getData();
+  const userIdx = db.users.findIndex(u => u.email.toLowerCase() === email.toLowerCase());
+  if (userIdx === -1) {
+    return res.status(400).json({ error: "Kullanıcı bulunamadı." });
+  }
+
+  const salt = bcrypt.genSaltSync(10);
+  db.users[userIdx].passwordHash = bcrypt.hashSync(newPassword, salt);
+  dbInstance.save({ users: db.users });
+
+  // Clear code
+  resetCodes.delete(email.toLowerCase());
+
+  addLog("auth", `Kullanıcı şifresini sıfırladı: ${email}`, req);
+  res.json({ success: true, message: "Şifreniz başarıyla sıfırlandı! Yeni şifrenizle giriş yapabilirsiniz." });
 });
 
 app.get("/api/auth/me", authenticateToken, (req: any, res) => {
