@@ -106,6 +106,8 @@ export default function AuthModal({
           errorMsg = "Giriş penceresi tarayıcınız tarafından engellendi. Lütfen açılır pencerelere izin verin.";
         } else if (err.code === "auth/network-request-failed") {
           errorMsg = "Ağ bağlantı hatası. Lütfen internet bağlantınızı kontrol edin.";
+        } else if (err.code === "auth/configuration-not-found") {
+          errorMsg = "Firebase Authentication yapılandırma hatası (auth/configuration-not-found). Lütfen Firebase Console'da (Authentication > Sign-in method) Google ile Giriş yöntemini etkinleştirin ve Admin panelindeki Firebase ayarlarınızın doğruluğunu kontrol edin.";
         } else if (err.message) {
           errorMsg = err.message;
         }

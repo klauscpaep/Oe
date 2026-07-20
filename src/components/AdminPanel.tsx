@@ -1606,6 +1606,9 @@ export default function AdminPanel({ currentUser, onRefreshData }: AdminPanelPro
                   <p className="text-slate-500 text-[11px] -mt-2">
                     Firebase entegrasyonu, kimlik doğrulama, kullanıcı yönetimi ve ek veritabanı özellikleri için gereklidir. Firebase Console üzerinden aldığınız web uygulaması yapılandırma parametrelerini buraya girebilirsiniz.
                   </p>
+                  <div className="bg-amber-500/5 border border-amber-500/10 text-amber-500/90 rounded-xl p-3 text-[11px] leading-relaxed">
+                    <span className="font-bold">⚠️ Önemli Kurulum Adımı:</span> Google ile Giriş özelliğinin sorunsuz çalışabilmesi için Firebase Console panelinizde <strong>Authentication &gt; Sign-in method</strong> sekmesine giderek <strong>Google</strong> giriş sağlayıcısını aktifleştirmeniz gerekmektedir. Aksi takdirde giriş yapılırken <code>auth/configuration-not-found</code> hatası alınacaktır.
+                  </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>

@@ -25,12 +25,32 @@ interface HeaderProps {
   onOpenAuth: () => void;
   onLogout: () => void;
   announcements?: any[];
+  siteSettings?: any;
 }
 
-export default function Header({ user, currentView, setView, onOpenAuth, onLogout, announcements = [] }: HeaderProps) {
+export default function Header({ user, currentView, setView, onOpenAuth, onLogout, announcements = [], siteSettings }: HeaderProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [announcementsOpen, setAnnouncementsOpen] = useState(false);
+
+  const formatSiteName = (name: string) => {
+    if (!name) return <>Vidi<span className="text-rose-500">Down</span></>;
+    for (let i = 1; i < name.length; i++) {
+      if (name[i] >= "A" && name[i] <= "Z") {
+        return (
+          <>
+            {name.substring(0, i)}<span className="text-rose-500">{name.substring(i)}</span>
+          </>
+        );
+      }
+    }
+    const mid = Math.ceil(name.length / 2);
+    return (
+      <>
+        {name.substring(0, mid)}<span className="text-rose-500">{name.substring(mid)}</span>
+      </>
+    );
+  };
 
   const navItems = [
     { label: "Ana Sayfa", view: "home", icon: Download },
@@ -56,7 +76,7 @@ export default function Header({ user, currentView, setView, onOpenAuth, onLogou
               <Download className="h-5 w-5 animate-pulse" />
             </div>
             <span className="text-xl font-bold tracking-tight bg-gradient-to-r from-white via-slate-200 to-rose-400 bg-clip-text text-transparent">
-              Vidi<span className="text-rose-500">Down</span>
+              {formatSiteName(siteSettings?.site_name || "VidiDown")}
             </span>
             <span className="hidden sm:inline-block text-[10px] bg-rose-500/10 text-rose-400 px-1.5 py-0.5 rounded-full border border-rose-500/20 font-mono">
               v2.4

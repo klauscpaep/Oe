@@ -11,6 +11,7 @@ import AuthModal from "./components/AuthModal";
 import InstallWizard from "./components/InstallWizard";
 import { User, Download, Announcement, Blog, Category } from "./types";
 import { api, setAuthToken, getAuthToken } from "./api";
+import { updateFirebaseConfig } from "./firebase";
 import { 
   Search, 
   Download as DlIcon, 
@@ -26,7 +27,8 @@ import {
   Mail,
   Smartphone,
   Check,
-  Send
+  Send,
+  Wrench
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 
@@ -89,6 +91,7 @@ export default function App() {
   };
 
   const isAds = siteSettings.ads_enabled === "true" && (!user || user.premiumStatus === "free");
+  const showMaintenance = siteSettings.maintenance_mode === "true" && (!user || user.role !== "admin");
 
   // Check login & load public content
   const initApp = async () => {
@@ -120,6 +123,7 @@ export default function App() {
       const settingsRes = await api.getSettings().catch(() => null);
       if (settingsRes && settingsRes.success) {
         setSiteSettings(settingsRes.settings);
+        updateFirebaseConfig(settingsRes.settings);
       } else {
         setIsInstalled(false);
         return;
@@ -164,6 +168,72 @@ export default function App() {
   useEffect(() => {
     initApp();
   }, []);
+
+  // Dynamic background polling for real-time site settings, announcements, and blogs (no F5 needed)
+  useEffect(() => {
+    const syncInterval = setInterval(async () => {
+      try {
+        // Fetch latest settings in background
+        const settingsRes = await api.getSettings().catch(() => null);
+        if (settingsRes && settingsRes.success) {
+          setSiteSettings((prev) => {
+            if (JSON.stringify(prev) !== JSON.stringify(settingsRes.settings)) {
+              updateFirebaseConfig(settingsRes.settings);
+              return settingsRes.settings;
+            }
+            return prev;
+          });
+        }
+
+        // Fetch announcements in background
+        const annRes = await api.getAnnouncements().catch(() => null);
+        if (annRes && annRes.success) {
+          setAnnouncements((prev) => {
+            if (JSON.stringify(prev) !== JSON.stringify(annRes.announcements)) {
+              const popup = annRes.announcements.find((a: Announcement) => a.type === "popup");
+              if (popup) {
+                setActivePopup((current) => {
+                  if (!current || current.id !== popup.id || current.title !== popup.title) {
+                    return popup;
+                  }
+                  return current;
+                });
+              }
+              return annRes.announcements;
+            }
+            return prev;
+          });
+        }
+
+        // Fetch blogs/categories in background
+        const blogRes = await api.getBlog().catch(() => null);
+        if (blogRes && blogRes.success) {
+          setBlogs((prev) => {
+            if (JSON.stringify(prev) !== JSON.stringify(blogRes.blog)) {
+              return blogRes.blog;
+            }
+            return prev;
+          });
+          setCategories((prev) => {
+            if (JSON.stringify(prev) !== JSON.stringify(blogRes.categories)) {
+              return blogRes.categories;
+            }
+            return prev;
+          });
+        }
+      } catch (err) {
+        console.warn("Background sync failed silently:", err);
+      }
+    }, 10000); // Polling every 10 seconds (extremely responsive and lightweight)
+
+    return () => clearInterval(syncInterval);
+  }, []);
+
+  useEffect(() => {
+    if (siteSettings && siteSettings.site_title) {
+      document.title = siteSettings.site_title;
+    }
+  }, [siteSettings]);
 
   // Gelişmiş Popunder & Reklam scripti tetikleyici
   useEffect(() => {
@@ -334,6 +404,7 @@ export default function App() {
         onOpenAuth={handleOpenAuth} 
         onLogout={handleLogout} 
         announcements={announcements}
+        siteSettings={siteSettings}
       />
 
       {/* 3. Main Body */}
@@ -356,9 +427,31 @@ export default function App() {
         )}
 
         <AnimatePresence mode="wait">
-          
-          {/* HOME VIEW */}
-          {view === "home" && (
+          {showMaintenance ? (
+            <motion.div
+              key="maintenance"
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="max-w-md mx-auto px-4 py-24 text-center"
+            >
+              <div className="inline-flex bg-amber-500/10 text-amber-500 p-4 rounded-3xl mb-6 animate-pulse border border-amber-500/20">
+                <Wrench className="h-8 w-8 text-amber-500" />
+              </div>
+              <h2 className="text-3xl font-extrabold tracking-tight bg-gradient-to-r from-white via-slate-200 to-amber-400 bg-clip-text text-transparent mb-4">
+                Sistem Bakımdadır
+              </h2>
+              <p className="text-slate-400 text-sm leading-relaxed mb-6">
+                Size daha iyi, stabil ve daha hızlı bir indirme hizmeti sunabilmek için şu anda planlı bakım çalışması yapıyoruz. Çok kısa bir süre sonra otomatik olarak tekrar aktif olacağız!
+              </p>
+              <div className="inline-block text-[11px] bg-slate-900 text-slate-400 px-4 py-2 rounded-2xl border border-slate-800/80 font-mono">
+                Otomatik senkronizasyon devrede. Sayfa kendiliğinden yenilenecektir.
+              </div>
+            </motion.div>
+          ) : (
+            <>
+              {/* HOME VIEW */}
+              {view === "home" && (
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
@@ -847,6 +940,8 @@ export default function App() {
               <p className="text-slate-400">Telif hakkıyla korunan bir içeriğinizin platformumuz tarafından dönüştürülmesini veya aranmasını engellemek (Kara Listeye / Blacklist eklemek) istiyorsanız, lütfen resmi sahiplik kanıtı ile birlikte <span className="text-rose-400 font-bold">dmca@vididown.com</span> adresine e-posta gönderiniz. Talepleriniz en geç 24 saat içinde işleme alınarak ilgili bağlantılar sitemiz genelinde tamamen engellenecektir.</p>
             </motion.div>
           )}
+            </>
+          )}
 
         </AnimatePresence>
 
@@ -869,7 +964,7 @@ export default function App() {
       </main>
 
       {/* 4. Footer */}
-      <Footer setView={setView} />
+      <Footer setView={setView} siteSettings={siteSettings} />
 
       {/* 5. Auth Modal Dialog */}
       <AuthModal 

@@ -3,10 +3,30 @@ import { Download, Heart, Shield, FileText, Map, HelpCircle, Mail, AlertTriangle
 
 interface FooterProps {
   setView: (view: string) => void;
+  siteSettings?: any;
 }
 
-export default function Footer({ setView }: FooterProps) {
+export default function Footer({ setView, siteSettings }: FooterProps) {
   const currentYear = new Date().getFullYear();
+
+  const formatSiteName = (name: string) => {
+    if (!name) return <>Vidi<span className="text-rose-500">Down</span></>;
+    for (let i = 1; i < name.length; i++) {
+      if (name[i] >= "A" && name[i] <= "Z") {
+        return (
+          <>
+            {name.substring(0, i)}<span className="text-rose-500">{name.substring(i)}</span>
+          </>
+        );
+      }
+    }
+    const mid = Math.ceil(name.length / 2);
+    return (
+      <>
+        {name.substring(0, mid)}<span className="text-rose-500">{name.substring(mid)}</span>
+      </>
+    );
+  };
 
   return (
     <footer className="bg-slate-950 border-t border-slate-900 pt-16 pb-8 text-slate-400">
@@ -15,12 +35,12 @@ export default function Footer({ setView }: FooterProps) {
           
           {/* Brand Info */}
           <div className="space-y-4">
-            <div className="flex items-center space-x-2" onClick={() => setView("home")}>
+            <div className="flex items-center space-x-2 cursor-pointer" onClick={() => setView("home")}>
               <div className="bg-rose-500 text-white p-2 rounded-xl flex items-center justify-center">
                 <Download className="h-4 w-4" />
               </div>
               <span className="text-lg font-bold text-white tracking-tight">
-                Vidi<span className="text-rose-500">Down</span>
+                {formatSiteName(siteSettings?.site_name || "VidiDown")}
               </span>
             </div>
             <p className="text-sm text-slate-400 leading-relaxed">
