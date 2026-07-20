@@ -288,6 +288,98 @@ app.post("/api/auth/login", (req, res) => {
   });
 });
 
+app.post("/api/auth/firebase-login", (req, res) => {
+  const { email, username, avatar } = req.body;
+  if (!email) {
+    return res.status(400).json({ error: "E-posta adresi gereklidir." });
+  }
+
+  const db = dbInstance.getData();
+  const clientIp = getClientIp(req);
+
+  // Check if email or IP is banned
+  const banInfo = db.banned_users.find(b => 
+    (b.email && b.email.toLowerCase() === email.toLowerCase()) ||
+    (b.ipAddress && b.ipAddress === clientIp && clientIp !== "127.0.0.1" && clientIp !== "::1")
+  );
+
+  if (banInfo) {
+    return res.status(403).json({
+      error: `Hesabınız veya IP adresiniz engellenmiştir. Gerekçe: ${banInfo.reason || "Kural ihlali"}`,
+      banned: true,
+      userId: banInfo.userId || "usr_banned",
+      username: banInfo.username || username || email.split("@")[0],
+      email: banInfo.email || email,
+      reason: banInfo.reason || "Kural ihlali"
+    });
+  }
+
+  // Find existing user by email
+  let user = db.users.find(u => u.email.toLowerCase() === email.toLowerCase());
+
+  if (!user) {
+    // If username exists, generate a unique one
+    let targetUsername = username || email.split("@")[0] || "google_user";
+    let suffix = 1;
+    while (db.users.some(u => u.username.toLowerCase() === targetUsername.toLowerCase())) {
+      targetUsername = `${username || email.split("@")[0]}_${suffix}`;
+      suffix++;
+    }
+
+    const salt = bcrypt.genSaltSync(10);
+    const randomPassword = "firebase_" + Math.random().toString(36).substring(2, 15);
+    const passwordHash = bcrypt.hashSync(randomPassword, salt);
+    const userId = "usr_" + Date.now() + "_" + Math.floor(Math.random() * 1000);
+    const apiKey = "vidi_api_" + Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+
+    const isMasterAdmin = email.toLowerCase() === "winhtaner28@gmail.com";
+    user = {
+      id: userId,
+      username: targetUsername,
+      email: email.toLowerCase(),
+      passwordHash,
+      role: isMasterAdmin ? "admin" : "user",
+      status: "active",
+      avatar: avatar || `https://api.dicebear.com/7.x/bottts/svg?seed=${targetUsername}`,
+      apiKey,
+      premiumStatus: isMasterAdmin ? "vip" : "free",
+      twoFactorEnabled: false,
+      lastIp: clientIp,
+      createdAt: new Date().toISOString()
+    };
+
+    db.users.push(user);
+    addLog("auth", `Yeni Firebase kullanıcısı oluşturuldu: ${user.username} (${email})`, req);
+  } else {
+    // Existing user, update IP and potentially avatar if not set
+    user.lastIp = clientIp;
+    if (avatar && (!user.avatar || user.avatar.includes("api.dicebear.com"))) {
+      user.avatar = avatar;
+    }
+    addLog("auth", `Firebase kullanıcısı giriş yaptı: ${user.username}`, req);
+  }
+
+  dbInstance.save({ users: db.users });
+
+  const token = jwt.sign({ id: user.id, role: user.role }, JWT_SECRET, { expiresIn: "7d" });
+
+  res.json({
+    success: true,
+    token,
+    user: {
+      id: user.id,
+      username: user.username,
+      email: user.email,
+      role: user.role,
+      avatar: user.avatar,
+      premiumStatus: user.premiumStatus,
+      apiKey: user.apiKey,
+      twoFactorEnabled: user.twoFactorEnabled,
+      createdAt: user.createdAt
+    }
+  });
+});
+
 // 3. Password Reset APIs
 const resetCodes = new Map<string, { code: string; expiresAt: number }>();
 

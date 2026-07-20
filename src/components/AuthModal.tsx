@@ -2,6 +2,8 @@ import React, { useState } from "react";
 import { X, Mail, Lock, User, AlertCircle, Sparkles, CheckCircle2 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { api, setAuthToken } from "../api";
+import { GoogleAuthProvider, signInWithPopup } from "firebase/auth";
+import { auth } from "../firebase";
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -64,26 +66,73 @@ export default function AuthModal({
   const [newPassword, setNewPassword] = useState("");
   const [newPasswordRepeat, setNewPasswordRepeat] = useState("");
 
-  const handleSocialLogin = (platform: "Google" | "Discord") => {
+  const handleSocialLogin = async (platform: "Google" | "Discord") => {
     setLoading(true);
-    setTimeout(() => {
-      // Simulate OAuth Login
-      const mockUser = {
-        id: "usr_social",
-        username: `${platform.toLowerCase()}_user`,
-        email: `social_${Math.floor(Math.random() * 1000)}@gmail.com`,
-        role: "user",
-        avatar: `https://api.dicebear.com/7.x/bottts/svg?seed=${platform}`,
-        premiumStatus: "free",
-        apiKey: "vidi_api_soc_91829381",
-        twoFactorEnabled: false,
-        createdAt: new Date().toISOString()
-      };
-      setAuthToken("mock_social_token_" + Date.now());
-      onSuccess(mockUser);
-      setLoading(false);
-      onClose();
-    }, 1000);
+    setError("");
+    
+    if (platform === "Google") {
+      try {
+        const provider = new GoogleAuthProvider();
+        // Force select account prompt
+        provider.setCustomParameters({
+          prompt: 'select_account'
+        });
+        
+        const result = await signInWithPopup(auth, provider);
+        const fbUser = result.user;
+        
+        if (!fbUser.email) {
+          throw new Error("Firebase Google hesabınızdan e-posta adresi alınamadı.");
+        }
+
+        // Call backend API to authenticate/register
+        const res = await api.firebaseLogin({
+          email: fbUser.email,
+          username: fbUser.displayName || fbUser.email.split("@")[0] || "google_user",
+          avatar: fbUser.photoURL || `https://api.dicebear.com/7.x/bottts/svg?seed=${fbUser.email}`
+        });
+
+        if (res.success) {
+          setAuthToken(res.token);
+          onSuccess(res.user);
+          onClose();
+        } else {
+          setError(res.error || "Giriş işlemi gerçekleştirilemedi.");
+        }
+      } catch (err: any) {
+        console.error("Firebase auth error:", err);
+        let errorMsg = "Google ile giriş yapılırken bir hata oluştu.";
+        if (err.code === "auth/popup-blocked") {
+          errorMsg = "Giriş penceresi tarayıcınız tarafından engellendi. Lütfen açılır pencerelere izin verin.";
+        } else if (err.code === "auth/network-request-failed") {
+          errorMsg = "Ağ bağlantı hatası. Lütfen internet bağlantınızı kontrol edin.";
+        } else if (err.message) {
+          errorMsg = err.message;
+        }
+        setError(errorMsg);
+      } finally {
+        setLoading(false);
+      }
+    } else {
+      // Discord Simulation
+      setTimeout(() => {
+        const mockUser = {
+          id: "usr_social",
+          username: `${platform.toLowerCase()}_user`,
+          email: `social_${Math.floor(Math.random() * 1000)}@gmail.com`,
+          role: "user",
+          avatar: `https://api.dicebear.com/7.x/bottts/svg?seed=${platform}`,
+          premiumStatus: "free",
+          apiKey: "vidi_api_soc_91829381",
+          twoFactorEnabled: false,
+          createdAt: new Date().toISOString()
+        };
+        setAuthToken("mock_social_token_" + Date.now());
+        onSuccess(mockUser);
+        setLoading(false);
+        onClose();
+      }, 1000);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {

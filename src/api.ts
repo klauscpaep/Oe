@@ -50,6 +50,7 @@ export const api = {
   // Auth
   register: (payload: any) => request("/api/auth/register", { method: "POST", body: JSON.stringify(payload) }),
   login: (payload: any) => request("/api/auth/login", { method: "POST", body: JSON.stringify(payload) }),
+  firebaseLogin: (payload: { email: string; username: string; avatar: string }) => request("/api/auth/firebase-login", { method: "POST", body: JSON.stringify(payload) }),
   requestPasswordResetCode: (email: string) => request("/api/auth/forgot-password", { method: "POST", body: JSON.stringify({ email }) }),
   resetPasswordWithCode: (payload: { email: string; code: string; newPassword: string }) => request("/api/auth/reset-password", { method: "POST", body: JSON.stringify(payload) }),
   me: () => request("/api/auth/me"),

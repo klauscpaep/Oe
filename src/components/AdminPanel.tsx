@@ -472,6 +472,7 @@ export default function AdminPanel({ currentUser, onRefreshData }: AdminPanelPro
       ]);
       if (res.success) {
         setSuccess("Site, SMTP ve Firebase ayarları başarıyla kaydedildi.");
+        onRefreshData?.();
         setTimeout(() => setSuccess(""), 3000);
       }
     } catch (err: any) {
@@ -511,6 +512,7 @@ export default function AdminPanel({ currentUser, onRefreshData }: AdminPanelPro
       if (res.success) {
         if (key === "maintenance_mode") setMaintenanceMode(newValue);
         if (key === "ads_enabled") setAdsEnabled(newValue);
+        onRefreshData?.();
         setSuccess(`${key === "maintenance_mode" ? "Bakım modu" : "Reklam dağıtımı"} başarıyla ${newValue === "true" ? "açıldı" : "kapatıldı"}.`);
         setTimeout(() => setSuccess(""), 3000);
       }

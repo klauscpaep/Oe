@@ -502,7 +502,14 @@ export class LocalDatabase {
     }
     const defaultSettings = [
       { key: "premium_price", value: "149" },
-      { key: "vip_price", value: "399" }
+      { key: "vip_price", value: "399" },
+      { key: "firebase_api_key", value: "AIzaSyBvYe30DDUv7UQyiqqvSyf3grrFtAypOcc" },
+      { key: "firebase_auth_domain", value: "test-b2c10.firebaseapp.com" },
+      { key: "firebase_project_id", value: "test-b2c10" },
+      { key: "firebase_storage_bucket", value: "test-b2c10.firebasestorage.app" },
+      { key: "firebase_messaging_sender_id", value: "327490613808" },
+      { key: "firebase_app_id", value: "1:327490613808:web:7df47f3ac51de38c17f3f5" },
+      { key: "firebase_measurement_id", value: "G-6MNLW7ME6G" }
     ];
     defaultSettings.forEach(ds => {
       const exists = dbData.settings.some(s => s.key === ds.key);
